@@ -5,7 +5,9 @@ module.exports = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || 'your-client-id-here',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'your-client-secret-here',
-    redirectUri: 'http://localhost:3001/auth/google/callback'
+    redirectUri: process.env.NODE_ENV === 'production' 
+      ? 'https://web-production-d1067.up.railway.app/auth/google/callback'
+      : 'http://localhost:3001/auth/google/callback'
   },
   
   // Server Configuration
