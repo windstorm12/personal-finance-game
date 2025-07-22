@@ -1,1 +1,1 @@
-web: NODE_ENV=production node server_oauth.js 
+web: npm start 
