@@ -317,7 +317,8 @@ function GoogleSignIn({ onSignIn }) {
         return;
       }
       
-      const res = await fetch('http://localhost:3001/auth/google', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const res = await fetch(`${backendUrl}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -589,7 +590,8 @@ function Leaderboard() {
 
   React.useEffect(() => {
     setLoading(true);
-    fetch(`/leaderboard?category=${category}`)
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+    fetch(`${backendUrl}/leaderboard?category=${category}`)
       .then(res => res.json())
       .then(data => {
         // Deduplicate by userId, keep the highest net worth per user
@@ -742,7 +744,8 @@ export default function AppOAuth() {
 
   async function checkAuthStatus() {
     try {
-      const res = await fetch('http://localhost:3001/auth/me', { credentials: 'include' });
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const res = await fetch(`${backendUrl}/auth/me`, { credentials: 'include' });
       if (res.ok) {
         const userData = await res.json();
         setUser(userData);
@@ -758,8 +761,9 @@ export default function AppOAuth() {
     setLoading(true);
     setError(null);
     try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       console.log('Fetching game data from /start');
-      const res = await fetch("http://localhost:3001/start", { 
+      const res = await fetch(`${backendUrl}/start`, { 
         method: "POST",
         credentials: 'include'
       });
@@ -782,7 +786,8 @@ export default function AppOAuth() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:3001/next-scenario`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const res = await fetch(`${backendUrl}/next-scenario`, {
         credentials: 'include'
       });
       const data = await res.json();
@@ -815,7 +820,8 @@ export default function AppOAuth() {
     });
     
     try {
-      const res = await fetch("http://localhost:3001/choose-action", {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const res = await fetch(`${backendUrl}/choose-action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
@@ -831,7 +837,7 @@ export default function AppOAuth() {
         // If it's an invalid choice error, try to reload the scenario
         if (errorText.includes('Invalid choice') || errorText.includes('No current scenario')) {
           console.log('Detected invalid choice error, reloading scenario...');
-          const reloadRes = await fetch("http://localhost:3001/next-scenario", {
+          const reloadRes = await fetch(`${backendUrl}/next-scenario`, {
             credentials: 'include'
           });
           if (reloadRes.ok) {
@@ -867,7 +873,8 @@ export default function AppOAuth() {
 
   async function handleSignOut() {
     try {
-      await fetch('http://localhost:3001/auth/logout', { 
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      await fetch(`${backendUrl}/auth/logout`, { 
         method: 'POST',
         credentials: 'include'
       });
@@ -886,7 +893,8 @@ export default function AppOAuth() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("http://localhost:3001/start", {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const res = await fetch(`${backendUrl}/start`, {
         method: "POST",
         credentials: 'include'
       });

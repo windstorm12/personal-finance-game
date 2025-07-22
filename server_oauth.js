@@ -13,9 +13,9 @@ const PORT = process.env.PORT || config.server.port;
 
 // CORS configuration
 const ALLOWED_ORIGINS = [
-  'http://localhost:5173',  // Local development
-  'http://localhost:3000',  // Local production build
-  process.env.FRONTEND_URL  // Production frontend URL
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://personal-finance-site-5cac.vercel.app'
 ];
 
 app.use(cors({
@@ -24,12 +24,14 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     if (ALLOWED_ORIGINS.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+      console.log('Origin not allowed:', origin);
+      return callback(new Error('CORS not allowed'), false);
     }
     return callback(null, true);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Session configuration
@@ -39,12 +41,22 @@ app.use(session({
   saveUninitialized: false,
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: 'none',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
 
 app.use(express.json());
+
+// Debug logging for auth routes
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`, {
+    origin: req.headers.origin,
+    session: req.session,
+    cookies: req.cookies
+  });
+  next();
+});
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -1307,4 +1319,5 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log(`Frontend URL: ${process.env.FRONTEND_URL}`);
+  console.log(`Allowed Origins:`, ALLOWED_ORIGINS);
 }); 
