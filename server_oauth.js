@@ -39,12 +39,28 @@ app.use(session({
   secret: config.server.sessionSecret,
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Required for Railway deployment
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'none',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    domain: process.env.NODE_ENV === 'production' ? '.railway.app' : undefined
   }
 }));
+
+// Debug middleware to log session and auth status
+app.use((req, res, next) => {
+  console.log('Request:', {
+    path: req.path,
+    method: req.method,
+    origin: req.headers.origin,
+    sessionID: req.sessionID,
+    hasSession: !!req.session,
+    userId: req.session?.userId,
+    cookies: req.headers.cookie
+  });
+  next();
+});
 
 app.use(express.json());
 
@@ -65,131 +81,109 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Google OAuth client
-const googleClient = new OAuth2Client(config.google.clientId);
+const oauth2Client = new OAuth2Client(
+  config.google.clientId,
+  config.google.clientSecret,
+  config.google.redirectUri
+);
 
-// Authentication middleware
-function requireAuth(req, res, next) {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  next();
-}
-
-// Google OAuth endpoints
+// Auth endpoints
 app.post('/auth/google', async (req, res) => {
   try {
-    console.log('Google auth request received');
     const { token } = req.body;
-    
     if (!token) {
-      console.error('No token provided');
-      return res.status(400).json({ error: 'No token provided' });
+      return res.status(400).json({ error: 'Token is required' });
     }
-    
-    console.log('Token received, length:', token.length);
-    console.log('Client ID being used:', config.google.clientId);
-    console.log('Token preview (first 50 chars):', token.substring(0, 50) + '...');
-    
-    // Check if token looks like a JWT
-    if (token.split('.').length !== 3) {
-      console.error('Token does not appear to be a valid JWT');
-      return res.status(400).json({ error: 'Invalid token format' });
-    }
-    
-    // Decode JWT header and payload to see what's in the token
-    try {
-      const [headerB64, payloadB64] = token.split('.');
-      const header = JSON.parse(Buffer.from(headerB64, 'base64').toString());
-      const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString());
-      
-      console.log('JWT Header:', header);
-      console.log('JWT Payload audience:', payload.aud);
-      console.log('JWT Payload issuer:', payload.iss);
-      console.log('Expected audience:', config.google.clientId);
-      
-      if (payload.aud !== config.google.clientId) {
-        console.error('Audience mismatch!');
-        console.error('Token was issued for:', payload.aud);
-        console.error('We are expecting:', config.google.clientId);
-      }
-    } catch (decodeError) {
-      console.error('Failed to decode JWT:', decodeError.message);
-    }
-    
-    // Verify the Google token
-    const ticket = await googleClient.verifyIdToken({
+
+    // Verify the token
+    const ticket = await oauth2Client.verifyIdToken({
       idToken: token,
       audience: config.google.clientId
     });
-    
-    console.log('Token verified successfully');
+
     const payload = ticket.getPayload();
-    console.log('Payload received:', { 
-      sub: payload.sub, 
-      email: payload.email, 
-      name: payload.name,
-      hasPicture: !!payload.picture 
-    });
-    
-    const { sub: googleId, email, name, picture } = payload;
-    
-    // Look up user by Google ID first
-    let user = await db.getUserByGoogleId(googleId);
-    let userId;
-    if (user) {
-      userId = user.id;
-      // Update name/picture/email on login
-      await db.updateUser(googleId, email, name, picture);
-    } else {
-      userId = await db.createUser(googleId, email, name, picture);
+    console.log('Auth payload:', payload);
+
+    // Look up or create user
+    let user = await db.getUserByGoogleId(payload.sub);
+    if (!user) {
+      // Create new user
+      const userId = await db.createUser(payload.sub, payload.email, payload.name, payload.picture);
       user = await db.getUserById(userId);
+    } else {
+      // Update existing user
+      await db.updateUser(payload.sub, payload.email, payload.name, payload.picture);
     }
-    // Store user in session
-    req.session.userId = userId;
-    req.session.user = user;
 
-    // Sync Google user profile to sessions.json on sign-in
-    let gameState = await db.getGameProgress(userId);
-    if (!gameState) {
-      gameState = getInitialState();
-    }
-    if (user && user.email) syncGoogleUserToSessionsJson(user.email, gameState);
+    // Set session data
+    req.session.userId = user.id;
+    req.session.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      picture: user.picture
+    };
 
-    console.log('User authenticated successfully:', user.name);
-    
-    res.json({ 
-      success: true, 
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        picture: user.picture
+    // Save session explicitly
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json({ error: 'Failed to save session' });
       }
+
+      console.log('Session saved successfully:', {
+        sessionID: req.sessionID,
+        userId: req.session.userId
+      });
+
+      res.json({ 
+        success: true, 
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          picture: user.picture
+        }
+      });
     });
+
   } catch (error) {
     console.error('Google auth error:', error);
-    console.error('Error details:', error.message);
     res.status(400).json({ error: 'Authentication failed', details: error.message });
   }
 });
 
-app.post('/auth/logout', (req, res) => {
-  req.session.destroy();
-  res.json({ success: true });
+// Auth check middleware
+const requireAuth = (req, res, next) => {
+  console.log('Auth check:', {
+    sessionID: req.sessionID,
+    session: req.session,
+    userId: req.session?.userId
+  });
+
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  next();
+};
+
+// Auth status endpoint
+app.get('/auth/me', (req, res) => {
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  res.json(req.session.user);
 });
 
-app.get('/auth/me', requireAuth, async (req, res) => {
-  try {
-    const user = await db.getUserById(req.session.userId);
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      picture: user.picture
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to get user info' });
-  }
+// Logout endpoint
+app.post('/auth/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ error: 'Failed to logout' });
+    }
+    res.json({ success: true });
+  });
 });
 
 // Game endpoints (require authentication)
