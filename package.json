@@ -4,7 +4,7 @@
   "description": "Personal Finance Life Simulation Game",
   "main": "server_oauth.js",
   "scripts": {
-    "start": "NODE_ENV=production node server_oauth.js",
+    "start": "node server_oauth.js",
     "dev": "nodemon server_oauth.js",
     "build": "cd client && npm install && npm run build",
     "postinstall": "npm run build"
@@ -25,12 +25,5 @@
   },
   "engines": {
     "node": ">=14.0.0"
-  },
-  "keywords": [
-    "finance",
-    "game",
-    "simulation"
-  ],
-  "author": "Your Name",
-  "license": "MIT"
+  }
 }
