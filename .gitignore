@@ -1,23 +1,23 @@
-# Dependencies
+# Node modules
 node_modules/
 client/node_modules/
 
-# Environment
-.env
-.env.local
-.env.*.local
-!.env.example
-
 # Build outputs
-client/dist/
 dist/
+client/dist/
 build/
 
-# Database
+# SQLite database
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
 
 # Logs
 npm-debug.log*
@@ -25,7 +25,7 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 
-# Editor directories and files
+# Editor/project files
 .idea/
 .vscode/
 *.suo
@@ -48,4 +48,10 @@ Thumbs.db
 sessions.json.bak
 
 # CSV files (temporary data)
-*.csv 
+*.csv
+
+# Vercel
+.vercel/
+
+# Misc
+*.zip 
