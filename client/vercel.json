@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://your-backend-url.herokuapp.com/:path*"
+      "destination": "https://web-production-d1067.up.railway.app/:path*"
     }
   ],
   "buildCommand": "npm run build",
