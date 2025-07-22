@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: #213547;
+  background-color: #ffffff;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid #000000;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #ffffff;
+  color: #000000;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+button:hover {
+  background-color: #f3f4f6;
+}
+button:focus,
+button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Remove dark mode styles since we're using light mode */
+
+/* Custom animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Page transition animations */
+.page-enter {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+}
+
+.page-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.page-exit-active {
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: opacity 0.3s ease-in, transform 0.3s ease-in;
+}
+
+/* Ensure pages render as full pages, not modals */
+.page-content {
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* Remove any modal-like styling */
+.page-content .bg-white {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* Ensure proper page layout */
+.page-container {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Force all page components to be full width and remove modal styling */
+.w-full > .bg-white.rounded-lg.shadow-lg {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* Remove any fixed positioning that might make components look like modals */
+.w-full {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Ensure page content takes full width */
+.page-content > div {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* Target specific modal-like containers and remove their styling */
+.bg-white.rounded-lg.shadow-lg.p-6 {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Remove any overlay/backdrop styling */
+.fixed.inset-0.bg-black.bg-opacity-50 {
+  display: none !important;
+}
+
+/* Ensure all page components render as full pages */
+.page-content .w-full {
+  width: 100% !important;
+  max-width: none !important;
+  position: relative !important;
+  z-index: 1 !important;
+  background: transparent !important;
+}
+
+/* Force page content to be normal flow, not overlays */
+.page-content {
+  position: static !important;
+  z-index: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Remove any modal-like positioning */
+.page-content * {
+  position: relative !important;
+  z-index: auto !important;
+}
+
+/* Ensure proper page layout */
+.page-content {
+  display: block !important;
+  float: none !important;
+  clear: both !important;
+}

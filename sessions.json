@@ -1,0 +1,493 @@
+{
+  "dummy_player_1": {
+    "cash": 50000,
+    "time": 168,
+    "stress": 20,
+    "day": 1,
+    "week": 15,
+    "skills": {
+      "finance": 85,
+      "social": 70,
+      "hustling": 90,
+      "health": 75
+    },
+    "assets": [
+      "Phone",
+      "Laptop",
+      "Car",
+      "Investment Portfolio"
+    ],
+    "job": "Senior Developer",
+    "jobLevel": 5,
+    "jobExperience": 500,
+    "income": 8000,
+    "passiveIncome": {
+      "investments": 2000,
+      "rentalIncome": 1500,
+      "dividends": 800,
+      "sideBusiness": 1200,
+      "royalties": 500,
+      "total": 6000
+    },
+    "investments": {
+      "stocks": 25000,
+      "bonds": 15000,
+      "realEstate": 100000,
+      "crypto": 5000,
+      "total": 145000
+    },
+    "debts": {
+      "creditCards": [],
+      "studentLoans": [],
+      "carLoans": [],
+      "personalLoans": [],
+      "medicalDebt": [],
+      "paydayLoans": []
+    },
+    "creditScore": 780,
+    "totalDebt": 0,
+    "monthlyDebtPayments": 0,
+    "completedScenarios": [
+      "scenario_1",
+      "scenario_2",
+      "scenario_3"
+    ],
+    "totalDecisions": 45,
+    "successfulDecisions": 42,
+    "currentScenario": null,
+    "scenarioHistory": [],
+    "achievements": {
+      "unlocked": [
+        "debt_free",
+        "millionaire",
+        "skill_master"
+      ],
+      "progress": {
+        "totalEarnings": 150000,
+        "debtFreeWeeks": 15,
+        "maxSkillLevel": 90,
+        "consecutiveGoodDecisions": 15,
+        "investmentValue": 145000,
+        "stressFreeWeeks": 8,
+        "millionaireWeeks": 5,
+        "skillMasterWeeks": 3
+      }
+    }
+  },
+  "dummy_player_2": {
+    "cash": 15000,
+    "time": 168,
+    "stress": 45,
+    "day": 1,
+    "week": 8,
+    "skills": {
+      "finance": 60,
+      "social": 80,
+      "hustling": 45,
+      "health": 55
+    },
+    "assets": [
+      "Phone",
+      "Laptop",
+      "Small Business"
+    ],
+    "job": "Marketing Manager",
+    "jobLevel": 3,
+    "jobExperience": 200,
+    "income": 4500,
+    "passiveIncome": {
+      "investments": 500,
+      "rentalIncome": 0,
+      "dividends": 200,
+      "sideBusiness": 800,
+      "royalties": 0,
+      "total": 1500
+    },
+    "investments": {
+      "stocks": 8000,
+      "bonds": 3000,
+      "realEstate": 0,
+      "crypto": 1000,
+      "total": 12000
+    },
+    "debts": {
+      "creditCards": [
+        {
+          "id": "cc_1",
+          "balance": 2000,
+          "interestRate": 0.18,
+          "monthlyPayment": 100,
+          "type": "creditCard"
+        }
+      ],
+      "studentLoans": [],
+      "carLoans": [],
+      "personalLoans": [],
+      "medicalDebt": [],
+      "paydayLoans": []
+    },
+    "creditScore": 720,
+    "totalDebt": 2000,
+    "monthlyDebtPayments": 100,
+    "completedScenarios": [
+      "scenario_1",
+      "scenario_2"
+    ],
+    "totalDecisions": 28,
+    "successfulDecisions": 25,
+    "currentScenario": null,
+    "scenarioHistory": [],
+    "achievements": {
+      "unlocked": [
+        "skill_master"
+      ],
+      "progress": {
+        "totalEarnings": 75000,
+        "maxSkillLevel": 80,
+        "consecutiveGoodDecisions": 8,
+        "investmentValue": 12000,
+        "stressFreeWeeks": 2,
+        "millionaireWeeks": 0,
+        "skillMasterWeeks": 1
+      }
+    }
+  },
+  "dummy_player_3": {
+    "cash": 5000,
+    "time": 168,
+    "stress": 75,
+    "day": 1,
+    "week": 3,
+    "skills": {
+      "finance": 25,
+      "social": 40,
+      "hustling": 30,
+      "health": 35
+    },
+    "assets": [
+      "Phone",
+      "Laptop"
+    ],
+    "job": "Junior Developer",
+    "jobLevel": 1,
+    "jobExperience": 50,
+    "income": 2500,
+    "passiveIncome": {
+      "investments": 0,
+      "rentalIncome": 0,
+      "dividends": 0,
+      "sideBusiness": 200,
+      "royalties": 0,
+      "total": 200
+    },
+    "investments": {
+      "stocks": 1000,
+      "bonds": 0,
+      "realEstate": 0,
+      "crypto": 500,
+      "total": 1500
+    },
+    "debts": {
+      "creditCards": [
+        {
+          "id": "cc_1",
+          "balance": 1500,
+          "interestRate": 0.22,
+          "monthlyPayment": 75,
+          "type": "creditCard"
+        }
+      ],
+      "studentLoans": [
+        {
+          "id": "sl_1",
+          "balance": 25000,
+          "interestRate": 0.05,
+          "monthlyPayment": 200,
+          "type": "studentLoan"
+        }
+      ],
+      "carLoans": [],
+      "personalLoans": [],
+      "medicalDebt": [],
+      "paydayLoans": []
+    },
+    "creditScore": 650,
+    "totalDebt": 26500,
+    "monthlyDebtPayments": 275,
+    "completedScenarios": [
+      "scenario_1"
+    ],
+    "totalDecisions": 12,
+    "successfulDecisions": 8,
+    "currentScenario": null,
+    "scenarioHistory": [],
+    "achievements": {
+      "unlocked": [],
+      "progress": {
+        "totalEarnings": 15000,
+        "debtFreeWeeks": 0,
+        "maxSkillLevel": 40,
+        "consecutiveGoodDecisions": 3,
+        "investmentValue": 1500,
+        "stressFreeWeeks": 0,
+        "millionaireWeeks": 0,
+        "skillMasterWeeks": 0
+      }
+    }
+  },
+  "janmejaykhandelwal979@gmail.com": {
+    "cash": 0,
+    "stress": 61,
+    "day": 1,
+    "week": 4,
+    "skills": {
+      "finance": 80,
+      "social": 32,
+      "hustling": 16,
+      "health": 26
+    },
+    "assets": [
+      "Phone"
+    ],
+    "passiveIncome": {
+      "investments": 0,
+      "rentalIncome": 0,
+      "dividends": 0,
+      "sideBusiness": 0,
+      "royalties": 0,
+      "total": 0
+    },
+    "investments": {
+      "stocks": 0,
+      "bonds": 0,
+      "realEstate": 0,
+      "crypto": 0,
+      "total": 0
+    },
+    "debts": {
+      "creditCards": [],
+      "studentLoans": [],
+      "carLoans": [],
+      "personalLoans": [],
+      "medicalDebt": [],
+      "paydayLoans": []
+    },
+    "creditScore": 0,
+    "totalDebt": 0,
+    "monthlyDebtPayments": 0,
+    "completedScenarios": [
+      "generated_health_1753154176840",
+      "generated_social_1753154189803",
+      "generated_income_1753154195840",
+      "generated_finance_1753154201291",
+      "generated_hustling_1753154204378",
+      "generated_social_1753154207824",
+      "generated_hustling_1753154214472",
+      "generated_income_1753154219368",
+      "generated_income_1753154225434",
+      "generated_social_1753154229866",
+      "generated_finance_1753154236657",
+      "generated_income_1753154243207",
+      "generated_health_1753154246161",
+      "generated_finance_1753154251224",
+      "generated_income_1753154256041",
+      "generated_finance_1753154269089",
+      "generated_health_1753154275090",
+      "generated_hustling_1753154278528",
+      "generated_hustling_1753154283625",
+      "generated_social_1753154286106"
+    ],
+    "totalDecisions": 20,
+    "successfulDecisions": 13,
+    "achievements": {
+      "unlocked": [
+        "finance_expert"
+      ],
+      "progress": {
+        "totalEarnings": 0,
+        "debtFreeWeeks": 0,
+        "maxSkillLevel": 0,
+        "consecutiveGoodDecisions": 0,
+        "investmentValue": 0,
+        "stressFreeWeeks": 0,
+        "millionaireWeeks": 0,
+        "skillMasterWeeks": 0
+      }
+    },
+    "currentScenario": {
+      "id": "generated_hustling_1753154290964",
+      "title": "Mentorship Program",
+      "description": "You encounter a mentorship program situation.",
+      "category": "hustling",
+      "timeCost": 6,
+      "baseCost": 500,
+      "choices": [
+        {
+          "id": "hustling_pursue_opportunity_0",
+          "text": "Take a lucrative gig (but it burns you out)",
+          "effects": {
+            "cash": 157,
+            "stress": 29,
+            "time": 4,
+            "skills": {
+              "hustling": 20,
+              "health": -9
+            }
+          },
+          "description": "You earn $157 from a side hustle or gig, but gain 21 stress, lose 9 health, and lose 2 hours."
+        },
+        {
+          "id": "hustling_part_time_1",
+          "text": "Part-time approach",
+          "effects": {
+            "cash": -250,
+            "stress": 6,
+            "time": 4,
+            "skills": {
+              "hustling": 15
+            }
+          },
+          "description": "Gain experience with less commitment"
+        },
+        {
+          "id": "hustling_decline_2",
+          "text": "Decline for now",
+          "effects": {
+            "cash": 0,
+            "stress": -5,
+            "time": 0,
+            "skills": {
+              "hustling": -5,
+              "social": 2
+            }
+          },
+          "description": "Focus on current responsibilities"
+        }
+      ]
+    },
+    "scenarioHistory": [
+      {
+        "scenario": "Fitness Equipment",
+        "choice": "Full commitment",
+        "day": 1,
+        "week": 1
+      },
+      {
+        "scenario": "Professional Conference",
+        "choice": "Full commitment",
+        "day": 2,
+        "week": 1
+      },
+      {
+        "scenario": "Start a Weekend Freelance Job",
+        "choice": "Go all in: +$20/week, +20 stress, -10 health",
+        "day": 3,
+        "week": 1
+      },
+      {
+        "scenario": "Crypto Investment",
+        "choice": "Profit from a smart trade (but it takes a toll)",
+        "day": 4,
+        "week": 1
+      },
+      {
+        "scenario": "Certification Course",
+        "choice": "Take a lucrative gig (but it burns you out)",
+        "day": 5,
+        "week": 1
+      },
+      {
+        "scenario": "Birthday Party",
+        "choice": "Full commitment",
+        "day": 6,
+        "week": 1
+      },
+      {
+        "scenario": "Business Startup",
+        "choice": "Decline for now",
+        "day": 7,
+        "week": 1
+      },
+      {
+        "scenario": "Overtime at Main Job",
+        "choice": "Skip this opportunity",
+        "day": 1,
+        "week": 2
+      },
+      {
+        "scenario": "Overtime at Main Job",
+        "choice": "Skip this opportunity",
+        "day": 2,
+        "week": 2
+      },
+      {
+        "scenario": "Professional Conference",
+        "choice": "Minimal effort",
+        "day": 3,
+        "week": 2
+      },
+      {
+        "scenario": "Real Estate Investment",
+        "choice": "Profit from a smart trade (but it takes a toll)",
+        "day": 4,
+        "week": 2
+      },
+      {
+        "scenario": "Take a Demanding Side Gig",
+        "choice": "Skip this opportunity",
+        "day": 5,
+        "week": 2
+      },
+      {
+        "scenario": "Mental Health Session",
+        "choice": "Full commitment",
+        "day": 6,
+        "week": 2
+      },
+      {
+        "scenario": "Medical Emergency",
+        "choice": "Profit from a smart trade (but it takes a toll)",
+        "day": 7,
+        "week": 2
+      },
+      {
+        "scenario": "Become a Rideshare Driver",
+        "choice": "Skip this opportunity",
+        "day": 1,
+        "week": 3
+      },
+      {
+        "scenario": "Credit Card Debt",
+        "choice": "Profit from a smart trade (but it takes a toll)",
+        "day": 2,
+        "week": 3
+      },
+      {
+        "scenario": "Fitness Equipment",
+        "choice": "Full commitment",
+        "day": 3,
+        "week": 3
+      },
+      {
+        "scenario": "Mentorship Program",
+        "choice": "Decline for now",
+        "day": 4,
+        "week": 3
+      },
+      {
+        "scenario": "Business Startup",
+        "choice": "Decline for now",
+        "day": 5,
+        "week": 3
+      },
+      {
+        "scenario": "Birthday Party",
+        "choice": "Skip entirely",
+        "day": 6,
+        "week": 3
+      }
+    ],
+    "income": 10,
+    "highStressStreak": 0
+  }
+}
