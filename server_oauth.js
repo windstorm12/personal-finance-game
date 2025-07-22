@@ -15,7 +15,7 @@ const PORT = process.env.PORT || config.server.port;
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',  // Local development
   'http://localhost:3000',  // Local production build
-  'https://your-frontend-url.onrender.com' // Your production frontend URL
+  process.env.FRONTEND_URL  // Production frontend URL
 ];
 
 app.use(cors({
@@ -24,7 +24,8 @@ app.use(cors({
     if (!origin) return callback(null, true);
     
     if (ALLOWED_ORIGINS.indexOf(origin) === -1) {
-      return callback(new Error('CORS policy violation'), false);
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
     }
     return callback(null, true);
   },
@@ -1303,6 +1304,7 @@ function getAchievementProgress(achievement, state) {
 }
 
 app.listen(PORT, () => {
-  console.log(`Personal Finance Game Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Frontend URL: ${process.env.FRONTEND_URL}`);
 }); 

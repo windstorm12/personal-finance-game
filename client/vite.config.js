@@ -6,18 +6,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/start': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/next-scenario': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/choose-action': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/stats': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/train-skill': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/leaderboard': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/player-stats': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/debt-info': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/pay-debt': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/achievements': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001',
-      '/auth': process.env.NODE_ENV === 'production' ? 'https://your-backend-url.onrender.com' : 'http://localhost:3001'
-    },
+      '/api': {
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
   },
   build: {
     outDir: 'dist',
