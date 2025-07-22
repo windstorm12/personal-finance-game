@@ -1153,14 +1153,23 @@ function applyChoiceEffects(state, choice) {
     }
   }
   
-  // Apply stress costs
+  // Apply stress costs (early game is more forgiving)
+  const isEarlyGame = (newState.week <= 10 || newState.cash < 10000);
   if (newState.stress > 80) {
     // Critical stress: lose money and time
-    newState.cash = Math.max(0, newState.cash - 50);
+    if (isEarlyGame) {
+      newState.cash = Math.max(0, newState.cash - 70);
+    } else {
+      newState.cash = Math.max(0, newState.cash - 100);
+    }
     newState.time = Math.max(0, newState.time - 4);
   } else if (newState.stress > 60) {
     // High stress: lose some money
-    newState.cash = Math.max(0, newState.cash - 20);
+    if (isEarlyGame) {
+      newState.cash = Math.max(0, newState.cash - 50);
+    } else {
+      newState.cash = Math.max(0, newState.cash - 50);
+    }
   } else if (newState.stress > 40) {
     // Moderate stress: small penalty
     newState.cash = Math.max(0, newState.cash - 5);

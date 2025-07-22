@@ -94,13 +94,13 @@ app.post('/auth/google', async (req, res) => {
     if (!token) {
       return res.status(400).json({ error: 'Token is required' });
     }
-
+    
     // Verify the token
     const ticket = await oauth2Client.verifyIdToken({
       idToken: token,
       audience: config.google.clientId
     });
-
+    
     const payload = ticket.getPayload();
     console.log('Auth payload:', payload);
 
@@ -135,16 +135,16 @@ app.post('/auth/google', async (req, res) => {
         sessionID: req.sessionID,
         userId: req.session.userId
       });
-
-      res.json({ 
-        success: true, 
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          picture: user.picture
-        }
-      });
+    
+    res.json({ 
+      success: true, 
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        picture: user.picture
+      }
+    });
     });
 
   } catch (error) {
