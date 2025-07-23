@@ -80,6 +80,17 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(clientBuildPath));
 }
 
+// Download endpoint for CSV files
+app.get('/download-csv', (req, res) => {
+  const filePath = path.join(__dirname, 'game_progress.csv');
+  res.download(filePath, (err) => {
+    if (err) {
+      console.log('Download error:', err);
+      res.status(404).send('File not found or error downloading.');
+    }
+  });
+});
+
 // Google OAuth client
 const oauth2Client = new OAuth2Client(
   config.google.clientId,
