@@ -7,6 +7,8 @@ const db = require('./database');
 const fs = require('fs');
 const path = require('path');
 const SESSIONS_FILE = path.join(__dirname, 'sessions.json');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 
 const app = express();
 const PORT = process.env.PORT || config.server.port;
@@ -88,6 +90,22 @@ app.get('/download-csv', (req, res) => {
       console.log('Download error:', err);
       res.status(404).send('File not found or error downloading.');
     }
+  });
+});
+
+// Upload endpoint for CSV files
+app.post('/upload-csv', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No file uploaded.');
+  }
+  const tempPath = req.file.path;
+  const targetPath = path.join(__dirname, 'game_progress.csv');
+  fs.rename(tempPath, targetPath, (err) => {
+    if (err) {
+      console.error('Error saving uploaded file:', err);
+      return res.status(500).send('Error saving file.');
+    }
+    res.send('File uploaded and saved as game_progress.csv');
   });
 });
 
