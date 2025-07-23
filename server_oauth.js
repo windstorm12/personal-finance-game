@@ -166,6 +166,7 @@ app.post('/auth/google', async (req, res) => {
 
     // Set session data
     req.session.userId = user.id;
+    req.session.email = user.email;
     req.session.user = {
       id: user.id,
       email: user.email,
@@ -210,7 +211,7 @@ const requireAuth = (req, res, next) => {
     userId: req.session?.userId
   });
 
-  if (!req.session || !req.session.userId) {
+  if (!req.session || !req.session.email) {
     return res.status(401).json({ error: 'Authentication required' });
   }
   next();
@@ -218,7 +219,7 @@ const requireAuth = (req, res, next) => {
 
 // Auth status endpoint
 app.get('/auth/me', (req, res) => {
-  if (!req.session || !req.session.userId) {
+  if (!req.session || !req.session.email) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
   res.json(req.session.user);
@@ -238,13 +239,13 @@ app.post('/auth/logout', (req, res) => {
 // Game endpoints (require authentication)
 app.post('/start', requireAuth, async (req, res) => {
   try {
-    let gameState = await db.getGameProgress(req.session.userId);
+    let gameState = await db.getGameProgress(req.session.email);
     const user = await db.getUserById(req.session.userId);
     if (!gameState || gameState.gameOver) { // Always reset if gameOver
       gameState = getInitialState();
       const nextScenario = getNextScenario(gameState);
       gameState.currentScenario = nextScenario;
-      await db.saveGameProgress(req.session.userId, gameState);
+      await db.saveGameProgress(req.session.email, gameState);
     }
     // Sync to sessions.json
     if (user && user.email) syncGoogleUserToSessionsJson(user.email, gameState);
@@ -260,19 +261,19 @@ app.post('/start', requireAuth, async (req, res) => {
 
 app.get('/next-scenario', requireAuth, async (req, res) => {
   try {
-    console.log('[NEXT-SCENARIO] User:', req.session.userId);
-    let gameState = await db.getGameProgress(req.session.userId);
+    console.log('[NEXT-SCENARIO] User:', req.session.email);
+    let gameState = await db.getGameProgress(req.session.email);
     console.log('[NEXT-SCENARIO] Loaded gameState:', JSON.stringify(gameState));
     const user = await db.getUserById(req.session.userId);
     if (!gameState) {
-      console.error('[NEXT-SCENARIO] No game in progress for user:', req.session.userId);
+      console.error('[NEXT-SCENARIO] No game in progress for user:', req.session.email);
       return res.status(400).json({ error: 'No game in progress' });
     }
     const updatedState = progressTime(gameState);
     const nextScenario = getNextScenario(updatedState);
     updatedState.currentScenario = nextScenario;
     console.log('[NEXT-SCENARIO] Saving updatedState:', JSON.stringify(updatedState));
-    await db.saveGameProgress(req.session.userId, updatedState);
+    await db.saveGameProgress(req.session.email, updatedState);
     // Sync to sessions.json
     if (user && user.email) syncGoogleUserToSessionsJson(user.email, updatedState);
     res.json({
@@ -287,21 +288,21 @@ app.get('/next-scenario', requireAuth, async (req, res) => {
 
 app.post('/choose-action', requireAuth, async (req, res) => {
   try {
-    console.log('[CHOOSE-ACTION] User:', req.session.userId, 'Body:', req.body);
-    let gameState = await db.getGameProgress(req.session.userId);
+    console.log('[CHOOSE-ACTION] User:', req.session.email, 'Body:', req.body);
+    let gameState = await db.getGameProgress(req.session.email);
     console.log('[CHOOSE-ACTION] Loaded gameState:', JSON.stringify(gameState));
     const user = await db.getUserById(req.session.userId);
     if (!gameState) {
-      console.error('[CHOOSE-ACTION] No game in progress for user:', req.session.userId);
+      console.error('[CHOOSE-ACTION] No game in progress for user:', req.session.email);
       return res.status(400).json({ error: 'No game in progress' });
     }
     if (!gameState.currentScenario) {
-      console.error('[CHOOSE-ACTION] No current scenario for user:', req.session.userId);
+      console.error('[CHOOSE-ACTION] No current scenario for user:', req.session.email);
       return res.status(400).json({ error: 'No current scenario' });
     }
     const choice = gameState.currentScenario.choices.find(c => c.id === req.body.choiceId);
     if (!choice) {
-      console.error('[CHOOSE-ACTION] Invalid choiceId:', req.body.choiceId, 'for user:', req.session.userId);
+      console.error('[CHOOSE-ACTION] Invalid choiceId:', req.body.choiceId, 'for user:', req.session.email);
       return res.status(400).json({ error: 'Invalid choice' });
     }
     const updatedState = applyChoiceEffects(gameState, choice);
@@ -315,10 +316,10 @@ app.post('/choose-action', requireAuth, async (req, res) => {
     updatedState.currentScenario = null;
     const { newAchievements, updatedState: achievementState } = checkAchievements(updatedState);
     for (const achievement of newAchievements) {
-      await db.saveAchievement(req.session.userId, achievement.id);
+      await db.saveAchievement(req.session.email, achievement.id);
     }
     console.log('[CHOOSE-ACTION] Saving achievementState:', JSON.stringify(achievementState));
-    await db.saveGameProgress(req.session.userId, achievementState);
+    await db.saveGameProgress(req.session.email, achievementState);
     // Sync to sessions.json
     if (user && user.email) syncGoogleUserToSessionsJson(user.email, achievementState);
     res.json({
@@ -336,7 +337,7 @@ app.post('/choose-action', requireAuth, async (req, res) => {
 app.post('/train-skill', requireAuth, async (req, res) => {
   try {
     const { skill, timeSpent } = req.body;
-    let gameState = await db.getGameProgress(req.session.userId);
+    let gameState = await db.getGameProgress(req.session.email);
     
     if (!gameState) {
       return res.status(400).json({ error: 'No game in progress' });
@@ -347,7 +348,7 @@ app.post('/train-skill', requireAuth, async (req, res) => {
     updatedState.stress = Math.min(100, updatedState.stress + (timeSpent * 2));
     
     // Save progress
-    await db.saveGameProgress(req.session.userId, updatedState);
+    await db.saveGameProgress(req.session.email, updatedState);
     
     res.json({
       state: updatedState,
@@ -383,8 +384,8 @@ app.get('/leaderboard', async (req, res) => {
 // Achievements
 app.get('/achievements', requireAuth, async (req, res) => {
   try {
-    const userAchievements = await db.getUserAchievements(req.session.userId);
-    const gameState = await db.getGameProgress(req.session.userId);
+    const userAchievements = await db.getUserAchievements(req.session.email);
+    const gameState = await db.getGameProgress(req.session.email);
     
     if (!gameState) {
       return res.status(400).json({ error: 'No game in progress' });
