@@ -109,6 +109,21 @@ app.post('/upload-csv', upload.single('file'), (req, res) => {
   });
 });
 
+// HTML upload form for CSV
+app.get('/upload-csv-form', (req, res) => {
+  res.send(`
+    <html>
+      <body>
+        <h2>Upload game_progress.csv</h2>
+        <form action="/upload-csv" method="post" enctype="multipart/form-data">
+          <input type="file" name="file" accept=".csv" required />
+          <button type="submit">Upload</button>
+        </form>
+      </body>
+    </html>
+  `);
+});
+
 // Google OAuth client
 const oauth2Client = new OAuth2Client(
   config.google.clientId,
