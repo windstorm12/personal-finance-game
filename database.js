@@ -27,10 +27,10 @@ class Database {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS game_progress (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
         game_state TEXT NOT NULL,
         last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
+        FOREIGN KEY (user_id) REFERENCES users (email)
       )
     `);
 
@@ -38,10 +38,10 @@ class Database {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS user_achievements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
         achievement_id TEXT NOT NULL,
         unlocked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
+        FOREIGN KEY (user_id) REFERENCES users (email)
       )
     `);
   }
@@ -100,11 +100,11 @@ class Database {
   }
 
   // Game progress management
-  async saveGameProgress(userId, gameState) {
+  async saveGameProgress(email, gameState) {
     return new Promise((resolve, reject) => {
       this.db.run(
         'INSERT OR REPLACE INTO game_progress (user_id, game_state, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)',
-        [userId, JSON.stringify(gameState)],
+        [email, JSON.stringify(gameState)],
         function(err) {
           if (err) reject(err);
           else resolve(this.lastID);
@@ -113,11 +113,11 @@ class Database {
     });
   }
 
-  async getGameProgress(userId) {
+  async getGameProgress(email) {
     return new Promise((resolve, reject) => {
       this.db.get(
         'SELECT game_state FROM game_progress WHERE user_id = ? ORDER BY last_updated DESC LIMIT 1',
-        [userId],
+        [email],
         (err, row) => {
           if (err) reject(err);
           else resolve(row ? JSON.parse(row.game_state) : null);
@@ -166,7 +166,6 @@ class Database {
           FROM game_progress
         )
         SELECT 
-          u.id,
           u.email,
           u.name,
           u.picture,
@@ -175,9 +174,9 @@ class Database {
           lp.last_updated,
           GROUP_CONCAT(ua.achievement_id) as achievements
         FROM users u
-        LEFT JOIN latest_progress lp ON u.id = lp.user_id AND lp.rn = 1
-        LEFT JOIN user_achievements ua ON u.id = ua.user_id
-        GROUP BY u.id
+        LEFT JOIN latest_progress lp ON u.email = lp.user_id AND lp.rn = 1
+        LEFT JOIN user_achievements ua ON u.email = ua.user_id
+        GROUP BY u.email
         HAVING lp.game_state IS NOT NULL
         ORDER BY json_extract(lp.game_state, '$.cash') DESC
       `, (err, rows) => {
@@ -189,7 +188,7 @@ class Database {
             const achievements = row.achievements ? row.achievements.split(',') : [];
             
             return {
-              userId: row.id,
+              userId: row.email,
               name: isDummy ? `Player ${row.email.split('_')[2]}` : row.name,
               picture: row.picture,
               netWorth: this.calculateNetWorth(gameState),
