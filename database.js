@@ -179,12 +179,9 @@ class Database {
     return new Promise((resolve, reject) => {
       this.db.all(`
         WITH latest_progress AS (
-          SELECT 
-            user_id,
-            game_state,
-            last_updated,
-            ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY last_updated DESC) as rn
-          FROM game_progress
+          SELECT * FROM game_progress WHERE id IN (
+            SELECT MAX(id) FROM game_progress GROUP BY user_id
+          )
         )
         SELECT 
           u.email,
@@ -195,7 +192,7 @@ class Database {
           lp.last_updated,
           GROUP_CONCAT(ua.achievement_id) as achievements
         FROM users u
-        LEFT JOIN latest_progress lp ON u.email = lp.user_id AND lp.rn = 1
+        LEFT JOIN latest_progress lp ON u.email = lp.user_id
         LEFT JOIN user_achievements ua ON u.email = ua.user_id
         GROUP BY u.email
         HAVING lp.game_state IS NOT NULL
@@ -207,7 +204,6 @@ class Database {
             const gameState = JSON.parse(row.game_state);
             const isDummy = row.is_dummy === 1;
             const achievements = row.achievements ? row.achievements.split(',') : [];
-            
             return {
               userId: row.email,
               name: isDummy ? `Player ${row.email.split('_')[2]}` : row.name,
