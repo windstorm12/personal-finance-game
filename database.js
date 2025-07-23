@@ -102,12 +102,33 @@ class Database {
   // Game progress management
   async saveGameProgress(email, gameState) {
     return new Promise((resolve, reject) => {
-      this.db.run(
-        'INSERT OR REPLACE INTO game_progress (user_id, game_state, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)',
-        [email, JSON.stringify(gameState)],
-        function(err) {
-          if (err) reject(err);
-          else resolve(this.lastID);
+      // Find the last row for this user
+      this.db.get(
+        'SELECT id FROM game_progress WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+        [email],
+        (err, row) => {
+          if (err) return reject(err);
+          if (row) {
+            // Update the last row
+            this.db.run(
+              'UPDATE game_progress SET game_state = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+              [JSON.stringify(gameState), row.id],
+              function(err2) {
+                if (err2) reject(err2);
+                else resolve(row.id);
+              }
+            );
+          } else {
+            // Insert new row if none exists
+            this.db.run(
+              'INSERT INTO game_progress (user_id, game_state, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)',
+              [email, JSON.stringify(gameState)],
+              function(err2) {
+                if (err2) reject(err2);
+                else resolve(this.lastID);
+              }
+            );
+          }
         }
       );
     });
@@ -116,7 +137,7 @@ class Database {
   async getGameProgress(email) {
     return new Promise((resolve, reject) => {
       this.db.get(
-        'SELECT game_state FROM game_progress WHERE user_id = ? ORDER BY last_updated DESC LIMIT 1',
+        'SELECT game_state FROM game_progress WHERE user_id = ? ORDER BY id DESC LIMIT 1',
         [email],
         (err, row) => {
           if (err) reject(err);
