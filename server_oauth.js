@@ -7,6 +7,10 @@ const db = require('./database');
 const fs = require('fs');
 const path = require('path');
 const SESSIONS_FILE = path.join(__dirname, 'sessions.json');
+
+// Ensure uploads directory exists
+fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
+
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
