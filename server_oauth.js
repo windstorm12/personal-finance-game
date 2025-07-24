@@ -170,8 +170,9 @@ app.post('/auth/google', async (req, res) => {
     req.session.user = {
       id: user.id,
       email: user.email,
-      name: user.name,
-      picture: user.picture
+      name: user.display_name || user.name,
+      picture: user.picture,
+      display_name: user.display_name || null
     };
 
     // Save session explicitly
@@ -190,9 +191,10 @@ app.post('/auth/google', async (req, res) => {
       success: true, 
       user: {
         id: user.id,
-        name: user.name,
+        name: user.display_name || user.name,
         email: user.email,
-        picture: user.picture
+        picture: user.picture,
+        display_name: user.display_name || null
       }
     });
     });
@@ -223,6 +225,24 @@ app.get('/auth/me', (req, res) => {
     return res.status(401).json({ error: 'Not authenticated' });
   }
   res.json(req.session.user);
+});
+
+// Endpoint to set/update display_name
+app.post('/user/display-name', requireAuth, async (req, res) => {
+  const { display_name } = req.body;
+  if (!display_name || typeof display_name !== 'string' || display_name.length < 2 || display_name.length > 32) {
+    return res.status(400).json({ error: 'Display name must be 2-32 characters.' });
+  }
+  try {
+    await db.setDisplayName(req.session.userId, display_name);
+    // Update session
+    req.session.user.name = display_name;
+    req.session.user.display_name = display_name;
+    req.session.save(() => {});
+    res.json({ success: true, display_name });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update display name.' });
+  }
 });
 
 // Logout endpoint
