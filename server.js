@@ -287,7 +287,6 @@ function getInitialState() {
   return {
     // Resources
     cash: 1000,
-    time: 168, // hours per week
     stress: 0,
     day: 1,
     week: 1,
@@ -777,7 +776,6 @@ function generateScenario(state) {
     // Use regular template choices for non-debt scenarios
     choices = template.choices.map((choice, index) => {
       let cashEffect = Math.round(event.cost * choice.effects.cash);
-      let timeEffect = Math.round(event.time * choice.effects.time);
       let stressEffect = choice.effects.stress; // Base stress effect from choice
       // Add event stress impact
       if (event.stress > 0) {
@@ -842,7 +840,6 @@ function generateScenario(state) {
         effects: {
           cash: cashEffect,
           stress: stressEffect,
-          time: timeEffect,
           skills: skillEffects
         },
         description: choice.description,
@@ -861,7 +858,6 @@ function generateScenario(state) {
     choices = choices.map((choice, index) => {
       let cashEffect = choice.effects.cash;
       let stressEffect = choice.effects.stress;
-      let timeEffect = choice.effects.time;
       let skillEffects = { ...choice.effects.skills };
       
       // Apply skill-based modifications
@@ -918,7 +914,6 @@ function generateScenario(state) {
         effects: {
           cash: cashEffect,
           stress: stressEffect,
-          time: timeEffect,
           skills: skillEffects
         },
         skillModifiers: {
@@ -1010,7 +1005,6 @@ function generateScenario(state) {
     title: event.name,
     description: description,
     category: category,
-    timeCost: event.time,
     baseCost: event.cost,
     choices: choices
   };
@@ -1022,7 +1016,6 @@ function applyChoiceEffects(state, choice) {
   
   // Apply direct effects
   if (choice.effects.cash) newState.cash += choice.effects.cash;
-  if (choice.effects.time) newState.time += choice.effects.time;
   if (choice.effects.stress) newState.stress += choice.effects.stress;
   if (choice.effects.income) newState.income += choice.effects.income;
   
@@ -1162,7 +1155,6 @@ function applyChoiceEffects(state, choice) {
     } else {
       newState.cash = Math.max(0, newState.cash - 100);
     }
-    newState.time = Math.max(0, newState.time - 4);
   } else if (newState.stress > 60) {
     // High stress: lose some money
     if (isEarlyGame) {
@@ -1198,7 +1190,6 @@ function applyChoiceEffects(state, choice) {
   
   // Clamp values
   newState.cash = Math.max(0, newState.cash);
-  newState.time = Math.max(0, Math.min(168, newState.time));
   newState.stress = Math.max(0, Math.min(100, newState.stress));
   
   return newState;
@@ -1252,18 +1243,27 @@ function progressTime(state) {
   }
   
   // Stress impact on daily life
-  if (newState.stress > 80) {
-    // Critical stress: lose money and can't work effectively
-    newState.cash = Math.max(0, newState.cash - 30);
-    newState.time = Math.max(0, newState.time - 8);
-  } else if (newState.stress > 60) {
-    // High stress: reduced productivity
-    newState.cash = Math.max(0, newState.cash - 15);
-    newState.time = Math.max(0, newState.time - 4);
-  } else if (newState.stress > 40) {
-    // Moderate stress: small impact
-    newState.cash = Math.max(0, newState.cash - 5);
-    newState.time = Math.max(0, newState.time - 2);
+  if (newState.cash < 10000) {
+    // Nerfed penalties for early game (scaled up)
+    if (newState.stress > 80) {
+      newState.cash = Math.max(0, newState.cash - 8); // Instead of -2
+    } else if (newState.stress > 60) {
+      newState.cash = Math.max(0, newState.cash - 4); // Instead of -1
+    } else if (newState.stress > 40) {
+      newState.cash = Math.max(0, newState.cash - 2); // Instead of -0.5
+    }
+  } else {
+    // Full penalties for late game
+    if (newState.stress > 80) {
+      // Critical stress: lose money and can't work effectively
+      newState.cash = Math.max(0, newState.cash - 30);
+    } else if (newState.stress > 60) {
+      // High stress: reduced productivity
+      newState.cash = Math.max(0, newState.cash - 15);
+    } else if (newState.stress > 40) {
+      // Moderate stress: small impact
+      newState.cash = Math.max(0, newState.cash - 5);
+    }
   }
   
   // Debt stress impact
@@ -1986,7 +1986,6 @@ app.post('/train-skill', (req, res) => {
   
   const updatedState = { ...state };
   updatedState.skills[skill] = Math.min(100, updatedState.skills[skill] + (timeSpent * 5));
-  updatedState.time = Math.max(0, updatedState.time - timeSpent);
   updatedState.stress = Math.min(100, updatedState.stress + (timeSpent * 2));
   
   sessions[sessionId] = updatedState;
