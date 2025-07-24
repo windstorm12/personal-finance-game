@@ -580,18 +580,33 @@ function progressTime(state) {
   }
 
   // Stress impact on daily life
-  if (newState.stress > 90) {
-    newState.cash = Math.max(0, newState.cash - 100);
-    // 10% chance to lose job/income
-    if (Math.random() < 0.1) {
-      newState.income = Math.max(0, Math.floor(newState.income * 0.5));
+  if (newState.cash < 10000) {
+    // Nerfed penalties for early game (scaled up)
+    if (newState.stress > 90) {
+      newState.cash = Math.max(0, newState.cash - 8); // Instead of -5
+      // No job/income loss
+    } else if (newState.stress > 80) {
+      newState.cash = Math.max(0, newState.cash - 8); // Instead of -2
+    } else if (newState.stress > 60) {
+      newState.cash = Math.max(0, newState.cash - 4); // Instead of -1
+    } else if (newState.stress > 40) {
+      newState.cash = Math.max(0, newState.cash - 2); // Instead of -0.5
     }
-  } else if (newState.stress > 80) {
-    newState.cash = Math.max(0, newState.cash - 50);
-  } else if (newState.stress > 60) {
-    newState.cash = Math.max(0, newState.cash - 20);
-  } else if (newState.stress > 40) {
-    newState.cash = Math.max(0, newState.cash - 10);
+  } else {
+    // Full penalties for late game
+    if (newState.stress > 90) {
+      newState.cash = Math.max(0, newState.cash - 100);
+      // 10% chance to lose job/income
+      if (Math.random() < 0.1) {
+        newState.income = Math.max(0, Math.floor(newState.income * 0.5));
+      }
+    } else if (newState.stress > 80) {
+      newState.cash = Math.max(0, newState.cash - 50);
+    } else if (newState.stress > 60) {
+      newState.cash = Math.max(0, newState.cash - 20);
+    } else if (newState.stress > 40) {
+      newState.cash = Math.max(0, newState.cash - 10);
+    }
   }
 
   // Long-term high stress penalty
