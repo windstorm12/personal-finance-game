@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 // Dashboard Component (same as original)
 function Dashboard({ state }) {
@@ -727,11 +727,25 @@ export default function AppOAuth() {
   const loadingRef = React.useRef(false);
   // Debounce flag for restart
   const [isRestarting, setIsRestarting] = React.useState(false);
+  // Display name modal state
+  const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState("");
+  const [displayNameError, setDisplayNameError] = useState("");
 
   // Check if user is already authenticated
   React.useEffect(() => {
     checkAuthStatus();
   }, []);
+
+  // Show display name modal if user is logged in and display_name is missing
+  React.useEffect(() => {
+    if (user && (!user.display_name || user.display_name.trim() === "")) {
+      setShowDisplayNameModal(true);
+      setDisplayNameInput("");
+    } else {
+      setShowDisplayNameModal(false);
+    }
+  }, [user]);
 
   // Load game when user is authenticated
   React.useEffect(() => {
@@ -915,9 +929,71 @@ export default function AppOAuth() {
     }
   }
 
+  async function submitDisplayName() {
+    setDisplayNameError("");
+    const name = displayNameInput.trim();
+    if (name.length < 2 || name.length > 32) {
+      setDisplayNameError("Display name must be 2-32 characters.");
+      return;
+    }
+    try {
+      setLoading(true);
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const res = await fetch(`${backendUrl}/user/display-name`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: 'include',
+        body: JSON.stringify({ display_name: name })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setDisplayNameError(data.error || "Failed to set display name.");
+        setLoading(false);
+        return;
+      }
+      // Update user state with new display name
+      setUser(prev => ({ ...prev, name, display_name: name }));
+      setShowDisplayNameModal(false);
+    } catch (err) {
+      setDisplayNameError("Failed to set display name.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Show sign-in screen if not authenticated
   if (!user) {
     return <GoogleSignIn onSignIn={setUser} />;
+  }
+
+  // Display name modal
+  if (showDisplayNameModal) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+        <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full text-center">
+          <h2 className="text-2xl font-bold mb-4 text-purple-700">Choose Your Display Name</h2>
+          <p className="mb-4 text-gray-600">This name will be shown on the leaderboard and in the game.</p>
+          <input
+            type="text"
+            className="w-full px-4 py-2 border rounded-lg mb-2 text-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+            placeholder="Enter display name"
+            value={displayNameInput}
+            onChange={e => setDisplayNameInput(e.target.value)}
+            maxLength={32}
+            disabled={loading}
+            autoFocus
+          />
+          {displayNameError && <div className="text-red-600 mb-2 text-sm">{displayNameError}</div>}
+          <button
+            className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold text-lg mt-2 hover:bg-purple-700 transition disabled:opacity-50"
+            onClick={submitDisplayName}
+            disabled={loading}
+          >
+            {loading ? "Saving..." : "Save Name"}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (loading && !state) {
@@ -990,9 +1066,9 @@ export default function AppOAuth() {
           {/* User Info */}
           <div className="flex items-center space-x-3">
             {user.picture && (
-              <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full" />
+              <img src={user.picture} alt={user.display_name || user.name} className="w-8 h-8 rounded-full" />
             )}
-            <span className="font-medium text-gray-700">{user.name}</span>
+            <span className="font-medium text-gray-700">{user.display_name || user.name}</span>
           </div>
         </div>
         

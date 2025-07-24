@@ -17,6 +17,7 @@ class Database {
         email TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
         picture TEXT,
+        display_name TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
         is_dummy INTEGER DEFAULT 0
@@ -47,11 +48,11 @@ class Database {
   }
 
   // User management
-  async createUser(googleId, email, name, picture) {
+  async createUser(googleId, email, name, picture, displayName = null) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        'INSERT OR IGNORE INTO users (google_id, email, name, picture, last_login) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
-        [googleId, email, name, picture],
+        'INSERT OR IGNORE INTO users (google_id, email, name, picture, display_name, last_login) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+        [googleId, email, name, picture, displayName],
         function(err) {
           if (err) reject(err);
           else resolve(this.lastID);
@@ -60,11 +61,28 @@ class Database {
     });
   }
 
-  async updateUser(googleId, email, name, picture) {
+  async updateUser(googleId, email, name, picture, displayName = undefined) {
+    return new Promise((resolve, reject) => {
+      let query = 'UPDATE users SET email = ?, name = ?, picture = ?, last_login = CURRENT_TIMESTAMP';
+      const params = [email, name, picture];
+      if (displayName !== undefined) {
+        query += ', display_name = ?';
+        params.push(displayName);
+      }
+      query += ' WHERE google_id = ?';
+      params.push(googleId);
+      this.db.run(query, params, function(err) {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  async setDisplayName(userId, displayName) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        'UPDATE users SET email = ?, name = ?, picture = ?, last_login = CURRENT_TIMESTAMP WHERE google_id = ?',
-        [email, name, picture, googleId],
+        'UPDATE users SET display_name = ? WHERE id = ?',
+        [displayName, userId],
         function(err) {
           if (err) reject(err);
           else resolve();
@@ -186,6 +204,7 @@ class Database {
         SELECT 
           u.email,
           u.name,
+          u.display_name,
           u.picture,
           u.is_dummy,
           lp.game_state,
@@ -206,7 +225,7 @@ class Database {
             const achievements = row.achievements ? row.achievements.split(',') : [];
             return {
               userId: row.email,
-              name: isDummy ? `Player ${row.email.split('_')[2]}` : row.name,
+              name: isDummy ? `Player ${row.email.split('_')[2]}` : (row.display_name || row.name),
               picture: row.picture,
               netWorth: this.calculateNetWorth(gameState),
               cash: gameState.cash || 0,
