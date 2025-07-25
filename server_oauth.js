@@ -596,10 +596,7 @@ function progressTime(state) {
     // Full penalties for late game
     if (newState.stress > 90) {
       newState.cash = Math.max(0, newState.cash - 100);
-      // 10% chance to lose job/income
-      if (Math.random() < 0.1) {
-        newState.income = Math.max(0, Math.floor(newState.income * 0.5));
-      }
+      // No job/income loss
     } else if (newState.stress > 80) {
       newState.cash = Math.max(0, newState.cash - 50);
     } else if (newState.stress > 60) {
@@ -614,7 +611,6 @@ function progressTime(state) {
     // Apply major penalty once per week of high stress
     if (!newState.lastHighStressPenaltyWeek || newState.lastHighStressPenaltyWeek !== newState.week) {
       newState.cash = Math.max(0, Math.floor(newState.cash * 0.8)); // Lose 20% of cash
-      newState.income = Math.max(0, Math.floor(newState.income * 0.9)); // Lose 10% of income
       newState.totalDebt = Math.floor(newState.totalDebt * 1.05); // Increase debt by 5%
       newState.lastHighStressPenaltyWeek = newState.week;
     }
