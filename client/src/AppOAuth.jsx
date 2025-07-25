@@ -87,19 +87,39 @@ function Dashboard({ state }) {
             style={{ width: `${state.stress}%` }}
           ></div>
         </div>
-        {state.stress > 70 && (
+        {state.cash < 10000 && state.stress > 80 && (
           <div className="text-xs text-red-600 mt-1 font-semibold">
-            ⚠️ Warning: Short-term high stress is manageable, but if your stress stays above 70 for more than 2 weeks, you will lose 20% of your cash, 10% of your income, and your debt will increase by 5% each week until you recover.
+            ⚠️ Critical stress! Losing $8/day (early game protection)
           </div>
         )}
-        {state.stress > 60 && state.stress <= 80 && (
+        {state.cash < 10000 && state.stress > 60 && state.stress <= 80 && (
+          <div className="text-xs text-orange-600 mt-1">
+            ⚠️ High stress! Losing $4/day (early game protection)
+          </div>
+        )}
+        {state.cash < 10000 && state.stress > 40 && state.stress <= 60 && (
+          <div className="text-xs text-yellow-600 mt-1">
+            ⚠️ Moderate stress! Losing $2/day (early game protection)
+          </div>
+        )}
+        {state.cash >= 10000 && state.stress > 80 && (
+          <div className="text-xs text-red-600 mt-1 font-semibold">
+            ⚠️ Critical stress! Losing $30/day
+          </div>
+        )}
+        {state.cash >= 10000 && state.stress > 60 && state.stress <= 80 && (
           <div className="text-xs text-orange-600 mt-1">
             ⚠️ High stress! Losing $15/day
           </div>
         )}
-        {state.stress > 40 && state.stress <= 60 && (
+        {state.cash >= 10000 && state.stress > 40 && state.stress <= 60 && (
           <div className="text-xs text-yellow-600 mt-1">
             ⚠️ Moderate stress! Losing $5/day
+          </div>
+        )}
+        {state.stress > 70 && (
+          <div className="text-xs text-red-600 mt-1 font-semibold">
+            ⚠️ Warning: Short-term high stress is manageable, but if your stress stays above 70 for more than 2 weeks, you will lose 20% of your cash and your debt will increase by 5% each week until you recover.
           </div>
         )}
       </div>
