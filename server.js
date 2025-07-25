@@ -1282,8 +1282,6 @@ function progressTime(state) {
   if (newState.day > 7) {
     newState.day = 1;
     newState.week++;
-    newState.time = 168; // Reset weekly time
-    
     // Update achievement progress weekly
     newState = updateAchievementProgress(newState);
   }
