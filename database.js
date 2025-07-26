@@ -36,7 +36,7 @@ class Database {
 
   init() {
     // Create users table
-    this.db.run(`
+    this.localDb.run(`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         google_id TEXT UNIQUE NOT NULL,
@@ -51,7 +51,7 @@ class Database {
     `);
 
     // Create game_progress table
-    this.db.run(`
+    this.localDb.run(`
       CREATE TABLE IF NOT EXISTS game_progress (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
@@ -62,7 +62,7 @@ class Database {
     `);
 
     // Create achievements table
-    this.db.run(`
+    this.localDb.run(`
       CREATE TABLE IF NOT EXISTS user_achievements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
