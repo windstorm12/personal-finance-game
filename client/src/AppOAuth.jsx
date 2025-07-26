@@ -1196,7 +1196,7 @@ export default function AppOAuth() {
           
         } catch (err) {
           console.error(`Display name attempt ${attempt} failed:`, err);
-          lastError = err.message;
+          lastError = err.message || "Failed to fetch";
           
           if (attempt < retries) {
             console.log(`Retrying in 1 second...`);
@@ -1211,7 +1211,7 @@ export default function AppOAuth() {
       
     } catch (err) {
       console.error('Display name submission error:', err);
-      setDisplayNameError("Network error. Please try again.");
+      setDisplayNameError(err.message || "Network error. Please try again.");
     } finally {
       setLoading(false);
     }
