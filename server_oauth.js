@@ -565,16 +565,37 @@ app.post('/auth/logout', (req, res) => {
 // Game endpoints (require authentication)
 app.post('/start', requireAuth, async (req, res) => {
   try {
+    console.log('[START] Session data:', {
+      userId: req.session.userId,
+      email: req.session.email,
+      user: req.session.user
+    });
+    
     let gameState = await db.getGameProgress(req.session.email);
+    console.log('[START] Retrieved gameState:', gameState ? 'exists' : 'null');
+    
     const user = await db.getUserById(req.session.userId);
+    console.log('[START] Retrieved user:', user ? user.email : 'null');
+    
     if (!gameState || gameState.gameOver) { // Always reset if gameOver
+      console.log('[START] Creating new game state');
       gameState = getInitialState();
       const nextScenario = getNextScenario(gameState);
       gameState.currentScenario = nextScenario;
+      console.log('[START] Saving new game state to database');
       await db.saveGameProgress(req.session.email, gameState);
+      console.log('[START] Game state saved successfully');
+    } else {
+      console.log('[START] Using existing game state');
     }
+    
     // Sync to sessions.json
-    if (user && user.email) syncGoogleUserToSessionsJson(user.email, gameState);
+    if (user && user.email) {
+      console.log('[START] Syncing to sessions.json');
+      syncGoogleUserToSessionsJson(user.email, gameState);
+    }
+    
+    console.log('[START] Sending response with game state');
     res.json({
       state: gameState,
       scenario: gameState.currentScenario
