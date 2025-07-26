@@ -17,17 +17,13 @@ const upload = multer({ dest: 'uploads/' });
 const app = express();
 const PORT = process.env.PORT || config.server.port;
 
-// CORS configuration
+// CORS configuration for cross-domain requests
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://personal-finance-site-5cac.vercel.app',
   'https://personal-finance-site-5cac-lmkeffo9c-windstorms-projects.vercel.app',
-  'https://web-production-d1067.up.railway.app',
-  'https://web-production-d1067.up.railway.app/',
-  'https://web-production-d1067.up.railway.app/auth',
-  'https://web-production-d1067.up.railway.app/auth/google',
-  'https://web-production-d1067.up.railway.app/auth/google/callback'
+  'https://web-production-d1067.up.railway.app'
 ];
 
 app.use(cors({
@@ -43,25 +39,29 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-mobile-token'],
+  exposedHeaders: ['Set-Cookie']
 }));
 
-// Session configuration optimized for all iOS browsers
+// Session configuration for cross-domain requests
 app.use(session({
   secret: config.server.sessionSecret,
-  resave: true, // Changed to true for better mobile compatibility
-  saveUninitialized: true, // Changed to true for better mobile compatibility
-  proxy: true, // Required for Railway deployment
+  resave: true,
+  saveUninitialized: true,
+  proxy: true,
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax', // Always use 'lax' for better mobile compatibility
+    sameSite: 'none', // Allow cross-domain requests
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    domain: process.env.NODE_ENV === 'production' ? '.railway.app' : undefined,
-    httpOnly: false, // Changed to false for better mobile compatibility
+    // Remove domain restriction to allow cross-domain cookies
+    httpOnly: false,
     path: '/'
   },
-  name: 'sid' // Use a shorter session name for mobile
+  name: 'sid'
 }));
+
+// Handle preflight requests for CORS
+app.options('*', cors());
 
 // Token-based authentication for mobile devices
 const mobileTokens = new Map(); // In production, use Redis or database
@@ -71,7 +71,7 @@ function generateMobileToken() {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
-// Enhanced session middleware for mobile compatibility
+// Enhanced session middleware for cross-domain and mobile compatibility
 app.use((req, res, next) => {
   const userAgent = req.headers['user-agent'] || '';
   const isMobile = /iPad|iPhone|iPod|Android/.test(userAgent);
@@ -88,6 +88,27 @@ app.use((req, res, next) => {
       req.session.email = userData.email;
       req.session.user = userData.user;
     }
+  }
+  
+  // For cross-domain requests, ensure session is properly set
+  if (req.session && req.session.userId && !req.session.email) {
+    console.log('Session restoration needed for cross-domain request');
+    // Try to restore session data from database
+    db.getUserById(req.session.userId).then(user => {
+      if (user) {
+        req.session.email = user.email;
+        req.session.user = {
+          id: user.id,
+          email: user.email,
+          name: user.display_name || user.name,
+          picture: user.picture,
+          display_name: user.display_name || null
+        };
+        console.log('Session restored for cross-domain request:', user.email);
+      }
+    }).catch(err => {
+      console.error('Failed to restore session:', err);
+    });
   }
   
   next();
