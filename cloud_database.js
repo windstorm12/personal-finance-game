@@ -13,11 +13,14 @@ class CloudDatabase {
       // Check if DATABASE_URL is provided
       if (!process.env.DATABASE_URL && !process.env.SUPABASE_DB_URL) {
         console.log('⚠️ No DATABASE_URL found, cloud database disabled');
+        console.log('Environment variables:', Object.keys(process.env).filter(key => key.includes('DATABASE')));
         this.isConnected = false;
         return;
       }
 
       console.log('🔗 Attempting to connect to cloud database...');
+      console.log('DATABASE_URL found:', !!process.env.DATABASE_URL);
+      console.log('SUPABASE_DB_URL found:', !!process.env.SUPABASE_DB_URL);
 
       // Initialize PostgreSQL connection with more robust config
       this.pool = new Pool({
@@ -44,7 +47,7 @@ class CloudDatabase {
       client.release();
       
       this.isConnected = true;
-      console.log('✅ Connected to cloud database successfully');
+      console.log('✅ Connected to PostgreSQL cloud database successfully');
       
       // Initialize tables
       await this.createTables();
