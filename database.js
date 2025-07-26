@@ -3,6 +3,7 @@ const config = require('./config');
 
 class Database {
   constructor() {
+    this.initialized = false;
     if (config.database.url) {
       // Use PostgreSQL (Railway)
       this.pool = new Pool({
@@ -19,15 +20,17 @@ class Database {
       this.db = new sqlite3.Database(config.database.path);
       this.isPostgres = false;
     }
-    this.init();
   }
 
   async init() {
+    if (this.initialized) return;
+    
     if (this.isPostgres) {
       await this.initPostgres();
     } else {
       this.initSqlite();
     }
+    this.initialized = true;
   }
 
   async initPostgres() {
@@ -116,6 +119,8 @@ class Database {
 
   // User management
   async createUser(googleId, email, name, picture, displayName = null) {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
@@ -142,6 +147,8 @@ class Database {
   }
 
   async updateUser(googleId, email, name, picture, displayName = undefined) {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
@@ -180,6 +187,8 @@ class Database {
   }
 
   async setDisplayName(userId, displayName) {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
@@ -205,6 +214,8 @@ class Database {
   }
 
   async getUserByGoogleId(googleId) {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
@@ -231,6 +242,8 @@ class Database {
   }
 
   async getUserById(userId) {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
@@ -257,6 +270,8 @@ class Database {
   }
 
   async saveGameProgress(email, gameState) {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
@@ -282,6 +297,8 @@ class Database {
   }
 
   async getGameProgress(email) {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
@@ -308,6 +325,8 @@ class Database {
   }
 
   async saveAchievement(userId, achievementId) {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
@@ -333,6 +352,8 @@ class Database {
   }
 
   async getUserAchievements(userId) {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
@@ -359,6 +380,8 @@ class Database {
   }
 
   async getLeaderboard() {
+    await this.init();
+    
     if (this.isPostgres) {
       const client = await this.pool.connect();
       try {
