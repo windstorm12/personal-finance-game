@@ -12,14 +12,22 @@ class Database {
   }
 
   async initializeDatabase() {
-    // Wait for cloud database to initialize
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (this.cloudDb.isConnected) {
-      console.log('✅ Using cloud database');
-      this.useCloud = true;
-    } else {
-      console.log('⚠️ Cloud database not available, using local SQLite');
+    try {
+      // Wait for cloud database to initialize
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (this.cloudDb.isConnected) {
+        console.log('✅ Using cloud database');
+        this.useCloud = true;
+      } else {
+        console.log('⚠️ Cloud database not available, using local SQLite');
+        this.useCloud = false;
+        this.localDb = new sqlite3.Database(config.database.path);
+        this.init();
+      }
+    } catch (err) {
+      console.error('❌ Database initialization error:', err.message);
+      console.log('⚠️ Falling back to local SQLite database');
       this.useCloud = false;
       this.localDb = new sqlite3.Database(config.database.path);
       this.init();

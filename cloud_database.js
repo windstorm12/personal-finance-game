@@ -17,20 +17,26 @@ class CloudDatabase {
         return;
       }
 
-      // Initialize PostgreSQL connection
+      console.log('🔗 Attempting to connect to cloud database...');
+
+      // Initialize PostgreSQL connection with more robust config
       this.pool = new Pool({
         connectionString: process.env.DATABASE_URL || process.env.SUPABASE_DB_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
+        ssl: process.env.NODE_ENV === 'production' ? { 
+          rejectUnauthorized: false,
+          sslmode: 'require'
+        } : false,
+        max: 5, // Reduce pool size
+        idleTimeoutMillis: 10000, // Shorter timeout
+        connectionTimeoutMillis: 5000, // Shorter connection timeout
+        statement_timeout: 10000, // Query timeout
       });
 
-      // Test connection with timeout
+      // Test connection with shorter timeout
       const client = await Promise.race([
         this.pool.connect(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 5000)
+          setTimeout(() => reject(new Error('Connection timeout after 5 seconds')), 5000)
         )
       ]);
       
@@ -38,7 +44,7 @@ class CloudDatabase {
       client.release();
       
       this.isConnected = true;
-      console.log('✅ Connected to cloud database');
+      console.log('✅ Connected to cloud database successfully');
       
       // Initialize tables
       await this.createTables();
