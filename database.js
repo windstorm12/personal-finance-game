@@ -14,13 +14,20 @@ class Database {
   async initializeDatabase() {
     try {
       // Wait for cloud database to initialize
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       if (this.cloudDb.isConnected) {
-        console.log('✅ Using cloud database');
+        console.log('✅ Using PostgreSQL cloud database');
         this.useCloud = true;
+        
+        // Ensure tables are created in PostgreSQL
+        await this.cloudDb.createTables();
+        
+        // Sync any existing local data to PostgreSQL
+        await this.syncLocalToCloud();
+        
       } else {
-        console.log('⚠️ Cloud database not available, using local SQLite');
+        console.log('❌ PostgreSQL not available, falling back to local SQLite');
         this.useCloud = false;
         this.localDb = new sqlite3.Database(config.database.path);
         this.init();
@@ -32,6 +39,71 @@ class Database {
       this.localDb = new sqlite3.Database(config.database.path);
       this.init();
     }
+  }
+
+  // Sync local SQLite data to PostgreSQL
+  async syncLocalToCloud() {
+    if (!this.useCloud || !this.localDb) return;
+    
+    try {
+      console.log('🔄 Syncing local data to PostgreSQL...');
+      
+      // Sync users
+      const users = await this.getLocalUsers();
+      for (const user of users) {
+        await this.cloudDb.createUser(
+          user.google_id, 
+          user.email, 
+          user.name, 
+          user.picture, 
+          user.display_name
+        );
+      }
+      
+      // Sync game progress
+      const progress = await this.getLocalGameProgress();
+      for (const prog of progress) {
+        await this.cloudDb.saveGameProgress(prog.user_id, JSON.parse(prog.game_state));
+      }
+      
+      // Sync achievements
+      const achievements = await this.getLocalAchievements();
+      for (const achievement of achievements) {
+        await this.cloudDb.saveAchievement(achievement.user_id, achievement.achievement_id);
+      }
+      
+      console.log('✅ Local data synced to PostgreSQL');
+    } catch (err) {
+      console.error('❌ Error syncing to PostgreSQL:', err.message);
+    }
+  }
+
+  // Helper methods to get local data
+  async getLocalUsers() {
+    return new Promise((resolve, reject) => {
+      this.localDb.all('SELECT * FROM users', (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+  }
+
+  async getLocalGameProgress() {
+    return new Promise((resolve, reject) => {
+      this.localDb.all('SELECT * FROM game_progress', (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+  }
+
+  async getLocalAchievements() {
+    return new Promise((resolve, reject) => {
+      this.localDb.all('SELECT * FROM user_achievements', (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
   }
 
   init() {
@@ -165,41 +237,64 @@ class Database {
 
   // Game progress management
   async saveGameProgress(email, gameState) {
-    if (this.useCloud) {
-      return await this.cloudDb.saveGameProgress(email, gameState);
-    } else {
-      return new Promise((resolve, reject) => {
-        // Find the last row for this user
-        this.localDb.get(
-          'SELECT id FROM game_progress WHERE user_id = ? ORDER BY id DESC LIMIT 1',
-          [email],
-          (err, row) => {
-            if (err) return reject(err);
-            if (row) {
-              // Update the last row
-              this.localDb.run(
-                'UPDATE game_progress SET game_state = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
-                [JSON.stringify(gameState), row.id],
-                function(err2) {
-                  if (err2) reject(err2);
-                  else resolve(row.id);
-                }
-              );
-            } else {
-              // Insert new row if none exists
-              this.localDb.run(
-                'INSERT INTO game_progress (user_id, game_state, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)',
-                [email, JSON.stringify(gameState)],
-                function(err2) {
-                  if (err2) reject(err2);
-                  else resolve(this.lastID);
-                }
-              );
-            }
-          }
-        );
-      });
+    try {
+      if (this.useCloud) {
+        // Always save to PostgreSQL
+        const result = await this.cloudDb.saveGameProgress(email, gameState);
+        
+        // Also save to local SQLite as backup
+        await this.saveToLocalSQLite(email, gameState);
+        
+        return result;
+      } else {
+        // Fallback to local SQLite only
+        return await this.saveToLocalSQLite(email, gameState);
+      }
+    } catch (err) {
+      console.error('❌ Error saving game progress:', err.message);
+      // Fallback to local SQLite if PostgreSQL fails
+      return await this.saveToLocalSQLite(email, gameState);
     }
+  }
+
+  // Helper method to save to local SQLite
+  async saveToLocalSQLite(email, gameState) {
+    return new Promise((resolve, reject) => {
+      if (!this.localDb) {
+        this.localDb = new sqlite3.Database(config.database.path);
+        this.init();
+      }
+      
+      // Find the last row for this user
+      this.localDb.get(
+        'SELECT id FROM game_progress WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+        [email],
+        (err, row) => {
+          if (err) return reject(err);
+          if (row) {
+            // Update the last row
+            this.localDb.run(
+              'UPDATE game_progress SET game_state = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+              [JSON.stringify(gameState), row.id],
+              function(err2) {
+                if (err2) reject(err2);
+                else resolve(row.id);
+              }
+            );
+          } else {
+            // Insert new row if none exists
+            this.localDb.run(
+              'INSERT INTO game_progress (user_id, game_state, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)',
+              [email, JSON.stringify(gameState)],
+              function(err2) {
+                if (err2) reject(err2);
+                else resolve(this.lastID);
+              }
+            );
+          }
+        }
+      );
+    });
   }
 
   async getGameProgress(email) {
