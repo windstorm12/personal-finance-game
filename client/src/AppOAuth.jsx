@@ -337,7 +337,7 @@ function GoogleSignIn({ onSignIn }) {
         return;
       }
       
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const res = await fetch(`${backendUrl}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -625,7 +625,7 @@ function Leaderboard() {
 
   React.useEffect(() => {
     setLoading(true);
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
     fetch(`${backendUrl}/leaderboard?category=${category}`)
       .then(res => res.json())
       .then(data => {
@@ -820,7 +820,7 @@ export default function AppOAuth() {
     });
     
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       console.log('Checking auth status from:', backendUrl);
       
       // For mobile devices, try token-based authentication first
@@ -944,7 +944,7 @@ export default function AppOAuth() {
     setLoading(true);
     setError(null);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       console.log('Fetching game data from /start');
       const res = await fetch(`${backendUrl}/start`, { 
         method: "POST",
@@ -969,7 +969,7 @@ export default function AppOAuth() {
     setLoading(true);
     setError(null);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const res = await fetch(`${backendUrl}/next-scenario`, {
         credentials: 'include'
       });
@@ -1003,7 +1003,7 @@ export default function AppOAuth() {
     });
     
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const res = await fetch(`${backendUrl}/choose-action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1056,7 +1056,7 @@ export default function AppOAuth() {
 
   async function handleSignOut() {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       await fetch(`${backendUrl}/auth/logout`, { 
         method: 'POST',
         credentials: 'include'
@@ -1076,7 +1076,7 @@ export default function AppOAuth() {
     setLoading(true);
     setError(null);
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const res = await fetch(`${backendUrl}/start`, {
         method: "POST",
         credentials: 'include'
@@ -1129,7 +1129,7 @@ export default function AppOAuth() {
     
     try {
       setLoading(true);
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       
       // Prepare headers for mobile token authentication
       const headers = { 
