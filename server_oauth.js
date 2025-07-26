@@ -22,6 +22,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://personal-finance-site-5cac.vercel.app',
+  'https://personal-finance-site-5cac-lmkeffo9c-windstorms-projects.vercel.app',
   'https://web-production-d1067.up.railway.app'
 ];
 
@@ -1780,6 +1781,32 @@ app.get('/admin/sync-status', requireAuth, async (req, res) => {
     res.json(status);
   } catch (err) {
     res.status(500).json({ error: 'Sync status check failed' });
+  }
+});
+
+// Manual database reconnection endpoint
+app.post('/admin/reconnect-db', requireAuth, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.session.email !== 'your-admin-email@example.com') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    console.log('🔄 Manual database reconnection requested...');
+    
+    // Force reinitialize database
+    await db.initializeDatabase();
+    
+    const status = {
+      useCloud: db.useCloud,
+      cloudConnected: db.cloudDb && db.cloudDb.isConnected,
+      message: 'Database reconnection completed',
+      timestamp: new Date().toISOString()
+    };
+    
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: 'Database reconnection failed' });
   }
 });
 
