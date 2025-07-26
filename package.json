@@ -7,7 +7,11 @@
     "start": "node server_oauth.js",
     "dev": "nodemon server_oauth.js",
     "build": "cd client && npm install && npm run build",
-    "postinstall": "npm run build"
+    "postinstall": "npm run build",
+    "deploy-setup": "node deploy_setup.js",
+    "backup": "node -e \"require('./database_backup').exportToCSV()\"",
+    "restore": "node -e \"require('./railway_deploy').setupPersistentStorage()\"",
+    "migrate-csv": "node migrate_csv_to_persistent.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
@@ -19,6 +23,7 @@
     "express-session": "^1.18.2",
     "google-auth-library": "^9.15.1",
     "multer": "^2.0.2",
+    "pg": "^8.11.3",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

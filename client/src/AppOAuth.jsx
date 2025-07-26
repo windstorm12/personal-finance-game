@@ -349,6 +349,21 @@ function GoogleSignIn({ onSignIn }) {
       console.log('Authentication response:', data);
       if (data.success) {
         console.log('Authentication successful, setting user:', data.user);
+        
+        // Store user data and mobile token for mobile fallback
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/.test(navigator.userAgent);
+        const isMobile = isIOS || isAndroid;
+        
+        if (isMobile) {
+          console.log('Storing user data and mobile token for mobile fallback');
+          localStorage.setItem('mobile_user_data', JSON.stringify(data.user));
+          if (data.mobileToken) {
+            localStorage.setItem('mobile_token', data.mobileToken);
+            console.log('Mobile token stored:', data.mobileToken);
+          }
+        }
+        
         onSignIn(data.user);
       } else {
         console.error('Authentication failed:', data);
@@ -759,10 +774,18 @@ export default function AppOAuth() {
 
   // Show display name modal if user is logged in and display_name is missing
   React.useEffect(() => {
+    console.log('Display name modal effect:', { 
+      user: user ? { ...user, picture: user.picture ? 'present' : 'missing' } : null,
+      hasDisplayName: user?.display_name,
+      displayNameLength: user?.display_name?.length
+    });
+    
     if (user && (!user.display_name || user.display_name.trim() === "")) {
+      console.log('Showing display name modal for user:', user.email);
       setShowDisplayNameModal(true);
       setDisplayNameInput("");
     } else {
+      console.log('Hiding display name modal');
       setShowDisplayNameModal(false);
     }
   }, [user]);
@@ -777,16 +800,142 @@ export default function AppOAuth() {
   }, [user]);
 
   async function checkAuthStatus() {
+    // Detect mobile browsers
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const isMobile = isIOS || isAndroid;
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    const isChrome = /Chrome/.test(navigator.userAgent);
+    const isIOSSafari = isIOS && isSafari;
+    const isIOSChrome = isIOS && isChrome;
+    
+    console.log('Checking auth status:', { 
+      isIOS, 
+      isAndroid, 
+      isMobile, 
+      isSafari, 
+      isChrome, 
+      isIOSSafari, 
+      isIOSChrome 
+    });
+    
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-      const res = await fetch(`${backendUrl}/auth/me`, { credentials: 'include' });
-      if (res.ok) {
-        const userData = await res.json();
-        setUser(userData);
-        loadGame();
+      console.log('Checking auth status from:', backendUrl);
+      
+      // For mobile devices, try token-based authentication first
+      if (isMobile) {
+        const mobileToken = localStorage.getItem('mobile_token');
+        if (mobileToken) {
+          console.log('Found mobile token, trying token-based auth');
+          
+          const tokenRes = await fetch(`${backendUrl}/auth/me`, { 
+            credentials: 'include',
+            headers: {
+              "Cache-Control": "no-cache",
+              "x-mobile-token": mobileToken
+            }
+          });
+          
+          if (tokenRes.ok) {
+            const userData = await tokenRes.json();
+            console.log('Token-based authentication successful:', userData);
+            setUser(userData);
+            loadGame();
+            return;
+          } else {
+            console.log('Token-based auth failed, clearing token');
+            localStorage.removeItem('mobile_token');
+          }
+        }
       }
+      
+      // Fallback to regular session-based authentication
+      let retries = isMobile ? 2 : 1;
+      let lastError = null;
+      
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          console.log(`Auth check attempt ${attempt}/${retries}`);
+          
+          const res = await fetch(`${backendUrl}/auth/me`, { 
+            credentials: 'include',
+            headers: {
+              "Cache-Control": "no-cache"
+            }
+          });
+          console.log('Auth status response:', { status: res.status, ok: res.ok });
+          
+          if (res.ok) {
+            const userData = await res.json();
+            console.log('User authenticated:', userData);
+            setUser(userData);
+            loadGame();
+            return; // Success, exit retry loop
+          } else {
+            console.log('User not authenticated, status:', res.status);
+            
+            // For mobile browsers, try fallback authentication if we have stored user data
+            if (isMobile && attempt === retries) {
+              const storedUser = localStorage.getItem('mobile_user_data');
+              if (storedUser) {
+                try {
+                  const userData = JSON.parse(storedUser);
+                  console.log('Trying mobile fallback auth with stored data:', userData);
+                  
+                  const fallbackRes = await fetch(`${backendUrl}/auth/mobile-fallback`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Cache-Control': 'no-cache'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                      email: userData.email,
+                      userId: userData.id
+                    })
+                  });
+                  
+                  if (fallbackRes.ok) {
+                    const fallbackData = await fallbackRes.json();
+                    console.log('Mobile fallback auth successful:', fallbackData);
+                    setUser(fallbackData.user);
+                    loadGame();
+                    return;
+                  } else {
+                    console.log('Mobile fallback auth failed, clearing stored data');
+                    localStorage.removeItem('mobile_user_data');
+                  }
+                } catch (fallbackError) {
+                  console.error('Mobile fallback auth error:', fallbackError);
+                  localStorage.removeItem('mobile_user_data');
+                }
+              }
+            }
+            
+            setUser(null);
+            return; // Not authenticated, no need to retry
+          }
+          
+        } catch (error) {
+          console.error(`Auth check attempt ${attempt} failed:`, error);
+          lastError = error;
+          
+          if (attempt < retries) {
+            console.log(`Retrying auth check in 1 second...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+        }
+      }
+      
+      // If we get here, all retries failed
+      console.error('Auth check failed after all retries:', lastError);
+      setUser(null);
+      
     } catch (error) {
       console.error('Auth check failed:', error);
+      setUser(null);
     }
   }
 
@@ -956,26 +1105,113 @@ export default function AppOAuth() {
       setDisplayNameError("Display name must be 2-32 characters.");
       return;
     }
+    
+    // Detect mobile browsers
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const isMobile = isIOS || isAndroid;
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    const isChrome = /Chrome/.test(navigator.userAgent);
+    const isIOSSafari = isIOS && isSafari;
+    const isIOSChrome = isIOS && isChrome;
+    
+    console.log('Submitting display name:', { 
+      name, 
+      isIOS, 
+      isAndroid, 
+      isMobile, 
+      isSafari, 
+      isChrome, 
+      isIOSSafari, 
+      isIOSChrome,
+      userAgent: navigator.userAgent 
+    });
+    
     try {
       setLoading(true);
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-      const res = await fetch(`${backendUrl}/user/display-name`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: 'include',
-        body: JSON.stringify({ display_name: name })
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        setDisplayNameError(data.error || "Failed to set display name.");
-        setLoading(false);
-        return;
+      
+      // Prepare headers for mobile token authentication
+      const headers = { 
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache"
+      };
+      
+      // Add mobile token if available
+      if (isMobile) {
+        const mobileToken = localStorage.getItem('mobile_token');
+        if (mobileToken) {
+          headers['x-mobile-token'] = mobileToken;
+          console.log('Using mobile token for display name submission');
+        }
       }
-      // Update user state with new display name
-      setUser(prev => ({ ...prev, name, display_name: name }));
-      setShowDisplayNameModal(false);
+      
+      // Add retry logic for mobile browsers
+      let retries = isMobile ? 3 : 1;
+      let lastError = null;
+      
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          console.log(`Display name attempt ${attempt}/${retries}`);
+          
+          const res = await fetch(`${backendUrl}/user/display-name`, {
+            method: "POST",
+            headers: headers,
+            credentials: 'include',
+            body: JSON.stringify({ display_name: name })
+          });
+          
+          console.log('Display name response status:', res.status);
+          
+          if (!res.ok) {
+            const data = await res.json();
+            console.error('Display name error:', data);
+            
+            if (res.status === 401) {
+              setDisplayNameError("Authentication required. Please sign in again.");
+              // Optionally redirect to sign in
+              setUser(null);
+              return;
+            }
+            
+            lastError = data.error || "Failed to set display name.";
+            if (attempt < retries) {
+              console.log(`Retrying in 1 second...`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              continue;
+            }
+            
+            setDisplayNameError(lastError);
+            setLoading(false);
+            return;
+          }
+          
+          const data = await res.json();
+          console.log('Display name success:', data);
+          
+          // Update user state with new display name
+          setUser(prev => ({ ...prev, name, display_name: name }));
+          setShowDisplayNameModal(false);
+          return; // Success, exit retry loop
+          
+        } catch (err) {
+          console.error(`Display name attempt ${attempt} failed:`, err);
+          lastError = err.message;
+          
+          if (attempt < retries) {
+            console.log(`Retrying in 1 second...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+        }
+      }
+      
+      // If we get here, all retries failed
+      setDisplayNameError(lastError || "Network error. Please try again.");
+      
     } catch (err) {
-      setDisplayNameError("Failed to set display name.");
+      console.error('Display name submission error:', err);
+      setDisplayNameError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }

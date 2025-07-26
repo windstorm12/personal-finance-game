@@ -41,22 +41,64 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// Session configuration
+// Session configuration optimized for all iOS browsers
 app.use(session({
   secret: config.server.sessionSecret,
-  resave: false,
-  saveUninitialized: false,
+  resave: true, // Changed to true for better mobile compatibility
+  saveUninitialized: true, // Changed to true for better mobile compatibility
   proxy: true, // Required for Railway deployment
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'none',
+    sameSite: 'lax', // Always use 'lax' for better mobile compatibility
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    domain: process.env.NODE_ENV === 'production' ? '.railway.app' : undefined
-  }
+    domain: process.env.NODE_ENV === 'production' ? '.railway.app' : undefined,
+    httpOnly: false, // Changed to false for better mobile compatibility
+    path: '/'
+  },
+  name: 'sid' // Use a shorter session name for mobile
 }));
 
-// Debug middleware to log session and auth status
+// Token-based authentication for mobile devices
+const mobileTokens = new Map(); // In production, use Redis or database
+
+// Generate mobile token
+function generateMobileToken() {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+// Enhanced session middleware for mobile compatibility
 app.use((req, res, next) => {
+  const userAgent = req.headers['user-agent'] || '';
+  const isMobile = /iPad|iPhone|iPod|Android/.test(userAgent);
+  
+  // For mobile devices, check for token-based authentication
+  if (isMobile) {
+    const mobileToken = req.headers['x-mobile-token'] || req.body.mobileToken;
+    if (mobileToken && mobileTokens.has(mobileToken)) {
+      const userData = mobileTokens.get(mobileToken);
+      console.log('Mobile token authentication found:', userData.email);
+      
+      // Create session from token
+      req.session.userId = userData.userId;
+      req.session.email = userData.email;
+      req.session.user = userData.user;
+    }
+  }
+  
+  next();
+});
+
+// Debug middleware to log session and auth status with mobile detection
+app.use((req, res, next) => {
+  const userAgent = req.headers['user-agent'] || '';
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+  const isAndroid = /Android/.test(userAgent);
+  const isMobile = isIOS || isAndroid;
+  const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+  const isChrome = /Chrome/.test(userAgent);
+  const isIOSSafari = isIOS && isSafari;
+  const isIOSChrome = isIOS && isChrome;
+  
   console.log('Request:', {
     path: req.path,
     method: req.method,
@@ -64,8 +106,24 @@ app.use((req, res, next) => {
     sessionID: req.sessionID,
     hasSession: !!req.session,
     userId: req.session?.userId,
-    cookies: req.headers.cookie
+    cookies: req.headers.cookie ? 'present' : 'missing',
+    userAgent: userAgent.substring(0, 100),
+    isIOS,
+    isAndroid,
+    isMobile,
+    isSafari,
+    isChrome,
+    isIOSSafari,
+    isIOSChrome
   });
+  
+  // Add mobile-specific headers for better compatibility
+  if (isMobile) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  
   next();
 });
 
@@ -136,6 +194,65 @@ const oauth2Client = new OAuth2Client(
   config.google.redirectUri
 );
 
+// Fallback endpoint for mobile browsers when session fails
+app.post('/auth/mobile-fallback', async (req, res) => {
+  const { email, userId } = req.body;
+  const userAgent = req.headers['user-agent'] || '';
+  const isMobile = /iPad|iPhone|iPod|Android/.test(userAgent);
+  
+  console.log('Mobile fallback auth attempt:', { email, userId, isMobile });
+  
+  if (!isMobile) {
+    return res.status(403).json({ error: 'This endpoint is only for mobile browsers' });
+  }
+  
+  if (!email || !userId) {
+    return res.status(400).json({ error: 'Email and userId are required' });
+  }
+  
+  try {
+    // Verify user exists
+    const user = await db.getUserById(userId);
+    if (!user || user.email !== email) {
+      return res.status(401).json({ error: 'Invalid user credentials' });
+    }
+    
+    // Create a temporary session
+    req.session.userId = user.id;
+    req.session.email = user.email;
+    req.session.user = {
+      id: user.id,
+      email: user.email,
+      name: user.display_name || user.name,
+      picture: user.picture,
+      display_name: user.display_name || null
+    };
+    
+    // Force session save
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('Mobile fallback session save error:', err);
+          reject(err);
+        } else {
+          console.log('Mobile fallback session saved successfully');
+          resolve();
+        }
+      });
+    });
+    
+    res.json({ 
+      success: true, 
+      user: req.session.user,
+      message: 'Mobile fallback authentication successful'
+    });
+    
+  } catch (error) {
+    console.error('Mobile fallback auth error:', error);
+    res.status(500).json({ error: 'Mobile fallback authentication failed' });
+  }
+});
+
 // Auth endpoints
 app.post('/auth/google', async (req, res) => {
   try {
@@ -175,18 +292,45 @@ app.post('/auth/google', async (req, res) => {
       display_name: user.display_name || null
     };
 
-    // Save session explicitly
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
-        return res.status(500).json({ error: 'Failed to save session' });
-      }
-
-      console.log('Session saved successfully:', {
-        sessionID: req.sessionID,
-        userId: req.session.userId
+    // Force session save for mobile browsers
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          reject(err);
+        } else {
+          console.log('Session saved successfully:', {
+            sessionID: req.sessionID,
+            userId: req.session.userId,
+            email: req.session.email
+          });
+          resolve();
+        }
       });
+    });
+
+    // Set additional headers for mobile browsers
+    const userAgent = req.headers['user-agent'] || '';
+    const isMobile = /iPad|iPhone|iPod|Android/.test(userAgent);
     
+    if (isMobile) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+
+    // Generate mobile token for mobile devices
+    let mobileToken = null;
+    if (isMobile) {
+      mobileToken = generateMobileToken();
+      mobileTokens.set(mobileToken, {
+        userId: user.id,
+        email: user.email,
+        user: req.session.user
+      });
+      console.log('Generated mobile token for user:', user.email);
+    }
+
     res.json({ 
       success: true, 
       user: {
@@ -195,8 +339,8 @@ app.post('/auth/google', async (req, res) => {
         email: user.email,
         picture: user.picture,
         display_name: user.display_name || null
-      }
-    });
+      },
+      mobileToken: mobileToken // Include token for mobile devices
     });
 
   } catch (error) {
@@ -208,16 +352,103 @@ app.post('/auth/google', async (req, res) => {
 // Auth check middleware
 const requireAuth = (req, res, next) => {
   console.log('Auth check:', {
+    path: req.path,
     sessionID: req.sessionID,
-    session: req.session,
-    userId: req.session?.userId
+    hasSession: !!req.session,
+    sessionKeys: req.session ? Object.keys(req.session) : [],
+    userId: req.session?.userId,
+    email: req.session?.email,
+    cookies: req.headers.cookie ? 'present' : 'missing',
+    hasMobileToken: !!req.headers['x-mobile-token']
   });
 
-  if (!req.session || !req.session.email) {
-    return res.status(401).json({ error: 'Authentication required' });
+  // Check if we have a valid session
+  if (req.session && req.session.email && req.session.userId) {
+    console.log('Authentication successful via session for user:', req.session.email);
+    return next();
   }
-  next();
+
+  // Check if we have a valid mobile token
+  const mobileToken = req.headers['x-mobile-token'];
+  if (mobileToken && mobileTokens.has(mobileToken)) {
+    const userData = mobileTokens.get(mobileToken);
+    console.log('Authentication successful via mobile token for user:', userData.email);
+    
+    // Create session from token
+    req.session.userId = userData.userId;
+    req.session.email = userData.email;
+    req.session.user = userData.user;
+    
+    return next();
+  }
+
+  // No valid authentication found
+  console.log('No valid authentication found');
+  return res.status(401).json({ error: 'Authentication required' });
 };
+
+// Mobile debug endpoint to check mobile browser compatibility
+app.get('/debug/mobile', (req, res) => {
+  const userAgent = req.headers['user-agent'] || '';
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+  const isAndroid = /Android/.test(userAgent);
+  const isMobile = isIOS || isAndroid;
+  const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+  const isChrome = /Chrome/.test(userAgent);
+  const isIOSSafari = isIOS && isSafari;
+  const isIOSChrome = isIOS && isChrome;
+  
+  res.json({
+    userAgent: userAgent.substring(0, 200),
+    isIOS,
+    isAndroid,
+    isMobile,
+    isSafari,
+    isChrome,
+    isIOSSafari,
+    isIOSChrome,
+    sessionID: req.sessionID,
+    hasSession: !!req.session,
+    sessionData: req.session ? {
+      userId: req.session.userId,
+      email: req.session.email,
+      hasUser: !!req.session.user
+    } : null,
+    cookies: req.headers.cookie ? 'present' : 'missing',
+    cookieCount: req.headers.cookie ? req.headers.cookie.split(';').length : 0,
+    headers: {
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      accept: req.headers.accept,
+      'accept-language': req.headers['accept-language']
+    }
+  });
+});
+
+// Debug endpoint to check session status
+app.get('/debug/session', (req, res) => {
+  res.json({
+    sessionID: req.sessionID,
+    hasSession: !!req.session,
+    sessionData: req.session ? {
+      userId: req.session.userId,
+      email: req.session.email,
+      user: req.session.user ? {
+        id: req.session.user.id,
+        email: req.session.user.email,
+        name: req.session.user.name,
+        hasDisplayName: !!req.session.user.display_name,
+        displayName: req.session.user.display_name
+      } : null
+    } : null,
+    cookies: req.headers.cookie ? 'present' : 'missing',
+    headers: {
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      userAgent: req.headers['user-agent']
+    }
+  });
+});
 
 // Auth status endpoint
 app.get('/auth/me', (req, res) => {
@@ -229,18 +460,63 @@ app.get('/auth/me', (req, res) => {
 
 // Endpoint to set/update display_name
 app.post('/user/display-name', requireAuth, async (req, res) => {
+  console.log('Display name request:', {
+    userId: req.session.userId,
+    email: req.session.email,
+    body: req.body,
+    userAgent: req.headers['user-agent']?.substring(0, 100),
+    hasMobileToken: !!req.headers['x-mobile-token']
+  });
+
   const { display_name } = req.body;
   if (!display_name || typeof display_name !== 'string' || display_name.length < 2 || display_name.length > 32) {
     return res.status(400).json({ error: 'Display name must be 2-32 characters.' });
   }
+  
   try {
     await db.setDisplayName(req.session.userId, display_name);
+    console.log('Display name updated successfully for user:', req.session.email);
+    
     // Update session
     req.session.user.name = display_name;
     req.session.user.display_name = display_name;
-    req.session.save(() => {});
+    
+    // Update mobile token if it exists
+    const mobileToken = req.headers['x-mobile-token'];
+    if (mobileToken && mobileTokens.has(mobileToken)) {
+      const tokenData = mobileTokens.get(mobileToken);
+      tokenData.user.name = display_name;
+      tokenData.user.display_name = display_name;
+      mobileTokens.set(mobileToken, tokenData);
+      console.log('Updated mobile token with new display name');
+    }
+    
+    // Force session save for mobile browsers
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error after display name update:', err);
+          reject(err);
+        } else {
+          console.log('Session saved successfully after display name update');
+          resolve();
+        }
+      });
+    });
+
+    // Set additional headers for mobile browsers
+    const userAgent = req.headers['user-agent'] || '';
+    const isMobile = /iPad|iPhone|iPod|Android/.test(userAgent);
+    
+    if (isMobile) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    
     res.json({ success: true, display_name });
   } catch (err) {
+    console.error('Display name update error:', err);
     res.status(500).json({ error: 'Failed to update display name.' });
   }
 });
@@ -1389,6 +1665,91 @@ function getAchievementProgress(achievement, state) {
       return { current: 0, target: 1 };
   }
 }
+
+// Database backup and restore endpoints (admin only)
+app.post('/admin/backup', requireAuth, async (req, res) => {
+  try {
+    // Check if user is admin (you can modify this logic)
+    if (req.session.email !== 'your-admin-email@example.com') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const RailwayDeploy = require('./railway_deploy');
+    const railway = new RailwayDeploy();
+    
+    await railway.backupToPersistent();
+    await railway.exportToCSV();
+    
+    res.json({ message: 'Backup completed successfully' });
+  } catch (err) {
+    console.error('Backup failed:', err);
+    res.status(500).json({ error: 'Backup failed' });
+  }
+});
+
+app.post('/admin/restore', requireAuth, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.session.email !== 'your-admin-email@example.com') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const RailwayDeploy = require('./railway_deploy');
+    const railway = new RailwayDeploy();
+    
+    await railway.setupPersistentStorage();
+    
+    res.json({ message: 'Restore completed successfully' });
+  } catch (err) {
+    console.error('Restore failed:', err);
+    res.status(500).json({ error: 'Restore failed' });
+  }
+});
+
+app.get('/admin/status', requireAuth, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.session.email !== 'your-admin-email@example.com') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const fs = require('fs');
+    const path = require('path');
+    const RailwayDeploy = require('./railway_deploy');
+    const railway = new RailwayDeploy();
+    
+    const status = {
+      localDbExists: fs.existsSync(config.database.path),
+      persistentDbExists: fs.existsSync(railway.persistentDbPath),
+      backupExists: fs.existsSync(railway.persistentBackupPath),
+      localDbSize: fs.existsSync(config.database.path) ? fs.statSync(config.database.path).size : 0,
+      persistentDbSize: fs.existsSync(railway.persistentDbPath) ? fs.statSync(railway.persistentDbPath).size : 0
+    };
+    
+    res.json(status);
+  } catch (err) {
+    console.error('Status check failed:', err);
+    res.status(500).json({ error: 'Status check failed' });
+  }
+});
+
+// Health check endpoint for database status
+app.get('/health', async (req, res) => {
+  try {
+    const health = await db.cloudDb.healthCheck();
+    res.json({
+      status: 'ok',
+      database: health,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      database: { status: 'error', message: err.message },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
