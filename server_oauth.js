@@ -1839,6 +1839,13 @@ app.post('/admin/reconnect-db', requireAuth, async (req, res) => {
   }
 });
 
+// Catch-all route to serve React app for all non-API routes
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
+  });
+}
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
