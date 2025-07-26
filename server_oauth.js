@@ -285,10 +285,28 @@ app.post('/auth/google', async (req, res) => {
     // Look up or create user
     let user = await db.getUserByGoogleId(payload.sub);
     if (!user) {
+      console.log('Creating new user for Google ID:', payload.sub);
       // Create new user
       const userId = await db.createUser(payload.sub, payload.email, payload.name, payload.picture);
-      user = await db.getUserById(userId);
+      console.log('User created with ID:', userId);
+      
+      // Try to get the user by ID, fallback to Google ID if that fails
+      try {
+        user = await db.getUserById(userId);
+        if (!user) {
+          console.log('Failed to get user by ID, trying Google ID...');
+          user = await db.getUserByGoogleId(payload.sub);
+        }
+      } catch (err) {
+        console.error('Error getting user by ID:', err.message);
+        user = await db.getUserByGoogleId(payload.sub);
+      }
+      
+      if (!user) {
+        throw new Error('Failed to create or retrieve user');
+      }
     } else {
+      console.log('Updating existing user:', user.email);
       // Update existing user
       await db.updateUser(payload.sub, payload.email, payload.name, payload.picture);
     }
