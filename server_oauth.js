@@ -23,7 +23,11 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'https://personal-finance-site-5cac.vercel.app',
   'https://personal-finance-site-5cac-lmkeffo9c-windstorms-projects.vercel.app',
-  'https://web-production-d1067.up.railway.app'
+  'https://web-production-d1067.up.railway.app',
+  'https://web-production-d1067.up.railway.app/',
+  'https://web-production-d1067.up.railway.app/auth',
+  'https://web-production-d1067.up.railway.app/auth/google',
+  'https://web-production-d1067.up.railway.app/auth/google/callback'
 ];
 
 app.use(cors({
@@ -257,8 +261,15 @@ app.post('/auth/mobile-fallback', async (req, res) => {
 // Auth endpoints
 app.post('/auth/google', async (req, res) => {
   try {
+    console.log('Google auth request received:', {
+      body: req.body,
+      headers: req.headers,
+      origin: req.headers.origin
+    });
+    
     const { token } = req.body;
     if (!token) {
+      console.log('No token provided in request');
       return res.status(400).json({ error: 'Token is required' });
     }
     
