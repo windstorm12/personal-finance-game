@@ -5,4 +5,7 @@ buildCommand = "npm install"
 [deploy]
 startCommand = "npm start"
 healthcheckPath = "/"
-restartPolicy = "always" 
+restartPolicy = "always"
+
+[[services]]
+name = "personal-finance-game" 
