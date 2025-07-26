@@ -1736,7 +1736,16 @@ app.get('/admin/status', requireAuth, async (req, res) => {
 // Health check endpoint for database status
 app.get('/health', async (req, res) => {
   try {
-    const health = await db.cloudDb.healthCheck();
+    let health;
+    if (db.cloudDb && db.cloudDb.isConnected) {
+      health = await db.cloudDb.healthCheck();
+    } else {
+      health = { 
+        status: 'local', 
+        message: 'Using local SQLite database (cloud database not configured)' 
+      };
+    }
+    
     res.json({
       status: 'ok',
       database: health,

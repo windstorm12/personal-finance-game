@@ -10,6 +10,13 @@ class CloudDatabase {
 
   async init() {
     try {
+      // Check if DATABASE_URL is provided
+      if (!process.env.DATABASE_URL && !process.env.SUPABASE_DB_URL) {
+        console.log('⚠️ No DATABASE_URL found, cloud database disabled');
+        this.isConnected = false;
+        return;
+      }
+
       // Initialize PostgreSQL connection
       this.pool = new Pool({
         connectionString: process.env.DATABASE_URL || process.env.SUPABASE_DB_URL,
@@ -19,8 +26,14 @@ class CloudDatabase {
         connectionTimeoutMillis: 2000,
       });
 
-      // Test connection
-      const client = await this.pool.connect();
+      // Test connection with timeout
+      const client = await Promise.race([
+        this.pool.connect(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 5000)
+        )
+      ]);
+      
       await client.query('SELECT NOW()');
       client.release();
       
@@ -32,8 +45,18 @@ class CloudDatabase {
       
     } catch (err) {
       console.error('❌ Cloud database connection failed:', err.message);
-      console.log('Falling back to local SQLite...');
+      console.log('⚠️ Falling back to local SQLite database');
       this.isConnected = false;
+      
+      // Clean up pool if it was created
+      if (this.pool) {
+        try {
+          await this.pool.end();
+        } catch (poolErr) {
+          console.error('Error closing pool:', poolErr.message);
+        }
+        this.pool = null;
+      }
     }
   }
 
