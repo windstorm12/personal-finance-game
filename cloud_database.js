@@ -22,9 +22,34 @@ class CloudDatabase {
       console.log('DATABASE_URL found:', !!process.env.DATABASE_URL);
       console.log('SUPABASE_DB_URL found:', !!process.env.SUPABASE_DB_URL);
 
+      // Get connection string
+      const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
+      console.log('Connection string type:', typeof connectionString);
+      console.log('Connection string length:', connectionString ? connectionString.length : 0);
+
+      // Force IPv4 connection by modifying connection string
+      let modifiedConnectionString = connectionString;
+      if (connectionString && connectionString.includes('@')) {
+        // Extract parts of the connection string
+        const parts = connectionString.split('@');
+        if (parts.length === 2) {
+          const credentials = parts[0];
+          const hostAndPort = parts[1];
+          
+          // Force IPv4 by adding ?family=4 to the connection string
+          if (!hostAndPort.includes('?')) {
+            modifiedConnectionString = `${credentials}@${hostAndPort}?family=4`;
+          } else {
+            modifiedConnectionString = `${credentials}@${hostAndPort}&family=4`;
+          }
+        }
+      }
+
+      console.log('Modified connection string:', modifiedConnectionString);
+
       // Initialize PostgreSQL connection with more robust config
       this.pool = new Pool({
-        connectionString: process.env.DATABASE_URL || process.env.SUPABASE_DB_URL,
+        connectionString: modifiedConnectionString,
         ssl: process.env.NODE_ENV === 'production' ? { 
           rejectUnauthorized: false,
           sslmode: 'require'

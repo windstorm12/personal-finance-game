@@ -22,6 +22,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://personal-finance-site-5cac.vercel.app',
+  'https://personal-finance-site-5cac-lmkeffo9c-windstorms-projects.vercel.app',
   'https://web-production-d1067.up.railway.app'
 ];
 
