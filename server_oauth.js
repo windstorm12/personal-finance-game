@@ -1739,16 +1739,18 @@ app.get('/health', async (req, res) => {
     let health;
     if (db.cloudDb && db.cloudDb.isConnected) {
       health = await db.cloudDb.healthCheck();
+      health.message = 'PostgreSQL cloud database connected and syncing';
     } else {
       health = { 
         status: 'local', 
-        message: 'Using local SQLite database (cloud database not configured)' 
+        message: 'Using local SQLite database (PostgreSQL not configured)' 
       };
     }
     
     res.json({
       status: 'ok',
       database: health,
+      useCloud: db.useCloud,
       timestamp: new Date().toISOString()
     });
   } catch (err) {
@@ -1757,6 +1759,27 @@ app.get('/health', async (req, res) => {
       database: { status: 'error', message: err.message },
       timestamp: new Date().toISOString()
     });
+  }
+});
+
+// Database sync status endpoint
+app.get('/admin/sync-status', requireAuth, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.session.email !== 'your-admin-email@example.com') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const status = {
+      useCloud: db.useCloud,
+      cloudConnected: db.cloudDb && db.cloudDb.isConnected,
+      localDbExists: db.localDb !== null,
+      timestamp: new Date().toISOString()
+    };
+    
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: 'Sync status check failed' });
   }
 });
 
