@@ -18,6 +18,11 @@ module.exports = {
   
   // Database Configuration
   database: {
-    path: process.env.DB_PATH || './game_data.db'
+    // For Railway PostgreSQL
+    url: process.env.DATABASE_URL,
+    // For local development (fallback to SQLite if no DATABASE_URL)
+    path: process.env.DB_PATH || './game_data.db',
+    // PostgreSQL specific config
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
   }
 }; 

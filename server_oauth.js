@@ -1888,9 +1888,24 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(`Frontend URL: ${process.env.FRONTEND_URL}`);
-  console.log(`Allowed Origins:`, ALLOWED_ORIGINS);
-}); 
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Wait for database initialization
+    await db.init();
+    console.log('Database initialized successfully');
+    
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV}`);
+      console.log(`Frontend URL: ${process.env.FRONTEND_URL}`);
+      console.log(`Allowed Origins:`, ALLOWED_ORIGINS);
+      console.log(`Database: ${config.database.url ? 'PostgreSQL (Railway)' : 'SQLite (Local)'}`);
+    });
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
+    process.exit(1);
+  }
+}
+
+startServer();

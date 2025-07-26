@@ -1,114 +1,85 @@
-const cloudDb = require('./cloud_database');
+const { Pool } = require('pg');
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
 const config = require('./config');
 
 class Database {
   constructor() {
-    this.cloudDb = cloudDb;
-    this.localDb = null;
-    this.useCloud = false;
-    this.initializeDatabase();
+    if (config.database.url) {
+      // Use PostgreSQL (Railway)
+      this.pool = new Pool({
+        connectionString: config.database.url,
+        ssl: config.database.ssl,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 2000,
+      });
+      this.isPostgres = true;
+    } else {
+      // Fallback to SQLite for local development
+      this.db = new sqlite3.Database(config.database.path);
+      this.isPostgres = false;
+    }
+    this.init();
   }
 
-  async initializeDatabase() {
-    try {
-      // Wait for cloud database to initialize
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      if (this.cloudDb.isConnected) {
-        console.log('✅ Using PostgreSQL cloud database');
-        this.useCloud = true;
-        
-        // Ensure tables are created in PostgreSQL
-        await this.cloudDb.createTables();
-        
-        // Sync any existing local data to PostgreSQL
-        await this.syncLocalToCloud();
-        
-      } else {
-        console.log('❌ PostgreSQL not available, falling back to local SQLite');
-        this.useCloud = false;
-        this.localDb = new sqlite3.Database(config.database.path);
-        this.init();
-      }
-    } catch (err) {
-      console.error('❌ Database initialization error:', err.message);
-      console.log('⚠️ Falling back to local SQLite database');
-      this.useCloud = false;
-      this.localDb = new sqlite3.Database(config.database.path);
-      this.init();
+  async init() {
+    if (this.isPostgres) {
+      await this.initPostgres();
+    } else {
+      this.initSqlite();
     }
   }
 
-  // Sync local SQLite data to PostgreSQL
-  async syncLocalToCloud() {
-    if (!this.useCloud || !this.localDb) return;
-    
+  async initPostgres() {
+    const client = await this.pool.connect();
     try {
-      console.log('🔄 Syncing local data to PostgreSQL...');
-      
-      // Sync users
-      const users = await this.getLocalUsers();
-      for (const user of users) {
-        await this.cloudDb.createUser(
-          user.google_id, 
-          user.email, 
-          user.name, 
-          user.picture, 
-          user.display_name
-        );
-      }
-      
-      // Sync game progress
-      const progress = await this.getLocalGameProgress();
-      for (const prog of progress) {
-        await this.cloudDb.saveGameProgress(prog.user_id, JSON.parse(prog.game_state));
-      }
-      
-      // Sync achievements
-      const achievements = await this.getLocalAchievements();
-      for (const achievement of achievements) {
-        await this.cloudDb.saveAchievement(achievement.user_id, achievement.achievement_id);
-      }
-      
-      console.log('✅ Local data synced to PostgreSQL');
-    } catch (err) {
-      console.error('❌ Error syncing to PostgreSQL:', err.message);
+      // Create users table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          google_id VARCHAR(255) UNIQUE NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          picture TEXT,
+          display_name VARCHAR(32),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          is_dummy BOOLEAN DEFAULT FALSE
+        )
+      `);
+
+      // Create game_progress table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS game_progress (
+          id SERIAL PRIMARY KEY,
+          user_id VARCHAR(255) NOT NULL,
+          game_state JSONB NOT NULL,
+          last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create achievements table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS user_achievements (
+          id SERIAL PRIMARY KEY,
+          user_id VARCHAR(255) NOT NULL,
+          achievement_id VARCHAR(255) NOT NULL,
+          unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      console.log('PostgreSQL tables initialized');
+    } catch (error) {
+      console.error('Error initializing PostgreSQL tables:', error);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
-  // Helper methods to get local data
-  async getLocalUsers() {
-    return new Promise((resolve, reject) => {
-      this.localDb.all('SELECT * FROM users', (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-  }
-
-  async getLocalGameProgress() {
-    return new Promise((resolve, reject) => {
-      this.localDb.all('SELECT * FROM game_progress', (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-  }
-
-  async getLocalAchievements() {
-    return new Promise((resolve, reject) => {
-      this.localDb.all('SELECT * FROM user_achievements', (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-  }
-
-  init() {
+  initSqlite() {
     // Create users table
-    this.localDb.run(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         google_id TEXT UNIQUE NOT NULL,
@@ -123,35 +94,42 @@ class Database {
     `);
 
     // Create game_progress table
-    this.localDb.run(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS game_progress (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
         game_state TEXT NOT NULL,
-        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (email)
+        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
     // Create achievements table
-    this.localDb.run(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS user_achievements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
         achievement_id TEXT NOT NULL,
-        unlocked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (email)
+        unlocked_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
   }
 
   // User management
   async createUser(googleId, email, name, picture, displayName = null) {
-    if (this.useCloud) {
-      return await this.cloudDb.createUser(googleId, email, name, picture, displayName);
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        const result = await client.query(
+          'INSERT INTO users (google_id, email, name, picture, display_name, last_login) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) ON CONFLICT (google_id) DO NOTHING RETURNING id',
+          [googleId, email, name, picture, displayName]
+        );
+        return result.rows[0]?.id;
+      } finally {
+        client.release();
+      }
     } else {
       return new Promise((resolve, reject) => {
-        this.localDb.run(
+        this.db.run(
           'INSERT OR IGNORE INTO users (google_id, email, name, picture, display_name, last_login) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
           [googleId, email, name, picture, displayName],
           function(err) {
@@ -164,8 +142,22 @@ class Database {
   }
 
   async updateUser(googleId, email, name, picture, displayName = undefined) {
-    if (this.useCloud) {
-      return await this.cloudDb.updateUser(googleId, email, name, picture, displayName);
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        let query = 'UPDATE users SET email = $1, name = $2, picture = $3, last_login = CURRENT_TIMESTAMP';
+        const params = [email, name, picture];
+        let paramCount = 3;
+        if (displayName !== undefined) {
+          query += `, display_name = $${++paramCount}`;
+          params.push(displayName);
+        }
+        query += ` WHERE google_id = $${++paramCount}`;
+        params.push(googleId);
+        await client.query(query, params);
+      } finally {
+        client.release();
+      }
     } else {
       return new Promise((resolve, reject) => {
         let query = 'UPDATE users SET email = ?, name = ?, picture = ?, last_login = CURRENT_TIMESTAMP';
@@ -176,7 +168,7 @@ class Database {
         }
         query += ' WHERE google_id = ?';
         params.push(googleId);
-        this.localDb.run(query, params, function(err) {
+        this.db.run(query, params, function(err) {
           if (err) reject(err);
           else resolve();
         });
@@ -185,11 +177,19 @@ class Database {
   }
 
   async setDisplayName(userId, displayName) {
-    if (this.useCloud) {
-      return await this.cloudDb.setDisplayName(userId, displayName);
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        await client.query(
+          'UPDATE users SET display_name = $1 WHERE id = $2',
+          [displayName, userId]
+        );
+      } finally {
+        client.release();
+      }
     } else {
       return new Promise((resolve, reject) => {
-        this.localDb.run(
+        this.db.run(
           'UPDATE users SET display_name = ? WHERE id = ?',
           [displayName, userId],
           function(err) {
@@ -202,11 +202,20 @@ class Database {
   }
 
   async getUserByGoogleId(googleId) {
-    if (this.useCloud) {
-      return await this.cloudDb.getUserByGoogleId(googleId);
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        const result = await client.query(
+          'SELECT * FROM users WHERE google_id = $1',
+          [googleId]
+        );
+        return result.rows[0];
+      } finally {
+        client.release();
+      }
     } else {
       return new Promise((resolve, reject) => {
-        this.localDb.get(
+        this.db.get(
           'SELECT * FROM users WHERE google_id = ?',
           [googleId],
           (err, row) => {
@@ -219,11 +228,20 @@ class Database {
   }
 
   async getUserById(userId) {
-    if (this.useCloud) {
-      return await this.cloudDb.getUserById(userId);
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        const result = await client.query(
+          'SELECT * FROM users WHERE id = $1',
+          [userId]
+        );
+        return result.rows[0];
+      } finally {
+        client.release();
+      }
     } else {
       return new Promise((resolve, reject) => {
-        this.localDb.get(
+        this.db.get(
           'SELECT * FROM users WHERE id = ?',
           [userId],
           (err, row) => {
@@ -235,84 +253,47 @@ class Database {
     }
   }
 
-  // Game progress management
   async saveGameProgress(email, gameState) {
-    try {
-      console.log('[SAVE_GAME_PROGRESS] Starting save for email:', email);
-      console.log('[SAVE_GAME_PROGRESS] Using cloud database:', this.useCloud);
-      
-      if (this.useCloud) {
-        // Always save to PostgreSQL
-        console.log('[SAVE_GAME_PROGRESS] Saving to PostgreSQL...');
-        const result = await this.cloudDb.saveGameProgress(email, gameState);
-        console.log('[SAVE_GAME_PROGRESS] PostgreSQL save result:', result);
-        
-        // Also save to local SQLite as backup
-        console.log('[SAVE_GAME_PROGRESS] Saving to local SQLite as backup...');
-        await this.saveToLocalSQLite(email, gameState);
-        console.log('[SAVE_GAME_PROGRESS] Local SQLite backup saved');
-        
-        return result;
-      } else {
-        // Fallback to local SQLite only
-        console.log('[SAVE_GAME_PROGRESS] Using local SQLite only');
-        return await this.saveToLocalSQLite(email, gameState);
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        await client.query(
+          'INSERT INTO game_progress (user_id, game_state, last_updated) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (user_id) DO UPDATE SET game_state = $2, last_updated = CURRENT_TIMESTAMP',
+          [email, JSON.stringify(gameState)]
+        );
+      } finally {
+        client.release();
       }
-    } catch (err) {
-      console.error('❌ Error saving game progress:', err.message);
-      // Fallback to local SQLite if PostgreSQL fails
-      console.log('[SAVE_GAME_PROGRESS] Falling back to local SQLite due to error');
-      return await this.saveToLocalSQLite(email, gameState);
+    } else {
+      return new Promise((resolve, reject) => {
+        this.db.run(
+          'INSERT OR REPLACE INTO game_progress (user_id, game_state, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)',
+          [email, JSON.stringify(gameState)],
+          function(err) {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
     }
   }
 
-  // Helper method to save to local SQLite
-  async saveToLocalSQLite(email, gameState) {
-    return new Promise((resolve, reject) => {
-      if (!this.localDb) {
-        this.localDb = new sqlite3.Database(config.database.path);
-        this.init();
-      }
-      
-      // Find the last row for this user
-      this.localDb.get(
-        'SELECT id FROM game_progress WHERE user_id = ? ORDER BY id DESC LIMIT 1',
-        [email],
-        (err, row) => {
-          if (err) return reject(err);
-          if (row) {
-            // Update the last row
-            this.localDb.run(
-              'UPDATE game_progress SET game_state = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
-              [JSON.stringify(gameState), row.id],
-              function(err2) {
-                if (err2) reject(err2);
-                else resolve(row.id);
-              }
-            );
-          } else {
-            // Insert new row if none exists
-            this.localDb.run(
-              'INSERT INTO game_progress (user_id, game_state, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)',
-              [email, JSON.stringify(gameState)],
-              function(err2) {
-                if (err2) reject(err2);
-                else resolve(this.lastID);
-              }
-            );
-          }
-        }
-      );
-    });
-  }
-
   async getGameProgress(email) {
-    if (this.useCloud) {
-      return await this.cloudDb.getGameProgress(email);
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        const result = await client.query(
+          'SELECT game_state FROM game_progress WHERE user_id = $1',
+          [email]
+        );
+        return result.rows[0] ? JSON.parse(result.rows[0].game_state) : null;
+      } finally {
+        client.release();
+      }
     } else {
       return new Promise((resolve, reject) => {
-        this.localDb.get(
-          'SELECT game_state FROM game_progress WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+        this.db.get(
+          'SELECT game_state FROM game_progress WHERE user_id = ?',
           [email],
           (err, row) => {
             if (err) reject(err);
@@ -323,18 +304,25 @@ class Database {
     }
   }
 
-  // Achievement management
   async saveAchievement(userId, achievementId) {
-    if (this.useCloud) {
-      return await this.cloudDb.saveAchievement(userId, achievementId);
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        await client.query(
+          'INSERT INTO user_achievements (user_id, achievement_id, unlocked_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (user_id, achievement_id) DO NOTHING',
+          [userId, achievementId]
+        );
+      } finally {
+        client.release();
+      }
     } else {
       return new Promise((resolve, reject) => {
-        this.localDb.run(
-          'INSERT OR IGNORE INTO user_achievements (user_id, achievement_id) VALUES (?, ?)',
+        this.db.run(
+          'INSERT OR IGNORE INTO user_achievements (user_id, achievement_id, unlocked_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
           [userId, achievementId],
           function(err) {
             if (err) reject(err);
-            else resolve(this.lastID);
+            else resolve();
           }
         );
       });
@@ -342,11 +330,20 @@ class Database {
   }
 
   async getUserAchievements(userId) {
-    if (this.useCloud) {
-      return await this.cloudDb.getUserAchievements(userId);
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        const result = await client.query(
+          'SELECT achievement_id FROM user_achievements WHERE user_id = $1',
+          [userId]
+        );
+        return result.rows.map(row => row.achievement_id);
+      } finally {
+        client.release();
+      }
     } else {
       return new Promise((resolve, reject) => {
-        this.localDb.all(
+        this.db.all(
           'SELECT achievement_id FROM user_achievements WHERE user_id = ?',
           [userId],
           (err, rows) => {
@@ -358,54 +355,71 @@ class Database {
     }
   }
 
-  // Leaderboard
   async getLeaderboard() {
-    if (this.useCloud) {
-      return await this.cloudDb.getLeaderboard();
-    } else {
-      return new Promise((resolve, reject) => {
-        this.localDb.all(`
-          WITH latest_progress AS (
-            SELECT * FROM game_progress WHERE id IN (
-              SELECT MAX(id) FROM game_progress GROUP BY user_id
-            )
-          )
+    if (this.isPostgres) {
+      const client = await this.pool.connect();
+      try {
+        const result = await client.query(`
           SELECT 
             u.email,
-            u.name,
             u.display_name,
-            u.picture,
+            u.name,
             u.is_dummy,
-            lp.game_state,
-            lp.last_updated,
-            GROUP_CONCAT(ua.achievement_id) as achievements
+            gp.game_state
           FROM users u
-          LEFT JOIN latest_progress lp ON u.email = lp.user_id
-          LEFT JOIN user_achievements ua ON u.email = ua.user_id
-          GROUP BY u.email
-          HAVING lp.game_state IS NOT NULL
-          ORDER BY json_extract(lp.game_state, '$.cash') DESC
+          LEFT JOIN game_progress gp ON u.email = gp.user_id
+          WHERE u.is_dummy = false
+          ORDER BY u.created_at DESC
+        `);
+        return result.rows.map(row => {
+          const gameState = row.game_state ? JSON.parse(row.game_state) : null;
+          return {
+            email: row.email,
+            display_name: row.display_name,
+            name: row.name,
+            is_dummy: row.is_dummy,
+            netWorth: gameState ? this.calculateNetWorth(gameState) : 0,
+            cash: gameState?.cash || 0,
+            day: gameState?.day || 0,
+            week: gameState?.week || 0,
+            skills: gameState?.skills || {},
+            achievements: gameState?.achievements?.unlocked || []
+          };
+        });
+      } finally {
+        client.release();
+      }
+    } else {
+      return new Promise((resolve, reject) => {
+        this.db.all(`
+          SELECT 
+            u.email,
+            u.display_name,
+            u.name,
+            u.is_dummy,
+            gp.game_state
+          FROM users u
+          LEFT JOIN game_progress gp ON u.email = gp.user_id
+          WHERE u.is_dummy = 0
+          ORDER BY u.created_at DESC
         `, (err, rows) => {
           if (err) reject(err);
           else {
-            const leaderboard = rows.map(row => {
-              const gameState = JSON.parse(row.game_state);
-              const isDummy = row.is_dummy === 1;
-              const achievements = row.achievements ? row.achievements.split(',') : [];
+            resolve(rows.map(row => {
+              const gameState = row.game_state ? JSON.parse(row.game_state) : null;
               return {
-                userId: row.email,
-                name: isDummy ? `Player ${row.email.split('_')[2]}` : (row.display_name || row.name),
-                picture: row.picture,
-                netWorth: this.calculateNetWorth(gameState),
-                cash: gameState.cash || 0,
-                week: gameState.week || 1,
-                totalDecisions: gameState.totalDecisions || 0,
-                lastUpdated: row.last_updated,
-                isDummy: isDummy,
-                achievements: achievements
+                email: row.email,
+                display_name: row.display_name,
+                name: row.name,
+                is_dummy: row.is_dummy,
+                netWorth: gameState ? this.calculateNetWorth(gameState) : 0,
+                cash: gameState?.cash || 0,
+                day: gameState?.day || 0,
+                week: gameState?.week || 0,
+                skills: gameState?.skills || {},
+                achievements: gameState?.achievements?.unlocked || []
               };
-            });
-            resolve(leaderboard);
+            }));
           }
         });
       });
@@ -413,18 +427,20 @@ class Database {
   }
 
   calculateNetWorth(gameState) {
+    if (!gameState) return 0;
     const cash = gameState.cash || 0;
-    const assets = gameState.assets || [];
-    const totalDebt = gameState.totalDebt || 0;
-    return cash + (assets.length * 100) - totalDebt;
+    const investments = gameState.investments || {};
+    const totalInvestments = Object.values(investments).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
+    const debts = gameState.debts || {};
+    const totalDebt = Object.values(debts).flat().reduce((sum, debt) => sum + (debt.amount || 0), 0);
+    return cash + totalInvestments - totalDebt;
   }
 
-  close() {
-    if (this.localDb) {
-      this.localDb.close();
-    }
-    if (this.cloudDb) {
-      this.cloudDb.close();
+  async close() {
+    if (this.isPostgres) {
+      await this.pool.end();
+    } else {
+      this.db.close();
     }
   }
 }
