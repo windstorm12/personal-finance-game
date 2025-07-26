@@ -238,21 +238,30 @@ class Database {
   // Game progress management
   async saveGameProgress(email, gameState) {
     try {
+      console.log('[SAVE_GAME_PROGRESS] Starting save for email:', email);
+      console.log('[SAVE_GAME_PROGRESS] Using cloud database:', this.useCloud);
+      
       if (this.useCloud) {
         // Always save to PostgreSQL
+        console.log('[SAVE_GAME_PROGRESS] Saving to PostgreSQL...');
         const result = await this.cloudDb.saveGameProgress(email, gameState);
+        console.log('[SAVE_GAME_PROGRESS] PostgreSQL save result:', result);
         
         // Also save to local SQLite as backup
+        console.log('[SAVE_GAME_PROGRESS] Saving to local SQLite as backup...');
         await this.saveToLocalSQLite(email, gameState);
+        console.log('[SAVE_GAME_PROGRESS] Local SQLite backup saved');
         
         return result;
       } else {
         // Fallback to local SQLite only
+        console.log('[SAVE_GAME_PROGRESS] Using local SQLite only');
         return await this.saveToLocalSQLite(email, gameState);
       }
     } catch (err) {
       console.error('❌ Error saving game progress:', err.message);
       // Fallback to local SQLite if PostgreSQL fails
+      console.log('[SAVE_GAME_PROGRESS] Falling back to local SQLite due to error');
       return await this.saveToLocalSQLite(email, gameState);
     }
   }
